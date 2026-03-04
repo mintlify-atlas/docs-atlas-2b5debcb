@@ -1,0 +1,451 @@
+---
+title: Application Contents
+description: Understanding what gets packaged in your Electron app, including asar archives and resource management
+icon: box
+---
+
+electron-builder packages your application code and resources into distributable formats. Understanding how files are organized and what gets included is crucial for optimizing your app's size and performance.
+
+## Default File Inclusion
+
+By default, electron-builder includes:
+
+- Your application code (from the app directory)
+- `node_modules` dependencies
+- `package.json`
+- All required runtime files
+
+<Note>
+The default behavior automatically excludes development dependencies, test files, and common non-runtime files.
+</Note>
+
+## ASAR Archives
+
+### What is ASAR?
+
+ASAR (Atom Shell Archive) is a simple archive format that concatenates files into a single file. Electron can read files from ASAR archives without unpacking them, which provides:
+
+- **Faster loading**: Single file reads are faster than many small file reads
+- **Reduced file count**: Improves performance on Windows
+- **Basic obfuscation**: Source code is not immediately visible (but not encrypted)
+
+### Default ASAR Configuration
+
+By default, your application code is packaged into `app.asar`:
+
+```json package.json
+{
+  "build": {
+    "asar": true
+  }
+}
+```
+
+### ASAR Integrity Validation
+
+electron-builder supports ASAR integrity validation to prevent tampering:
+
+```json package.json
+{
+  "build": {
+    "electronFuses": {
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    }
+  }
+}
+```
+
+<Note>
+ASAR integrity checking is supported on:
+- macOS as of Electron 16.0.0+
+- Windows as of Electron 30.0.0+
+</Note>
+
+<Warning>
+When enabling `onlyLoadAppFromAsar`, Electron will only load code from `app.asar`, not from unpacked `app` directories. Combine this with integrity validation for maximum security.
+</Warning>
+
+### Unpacking Files from ASAR
+
+Some files need to be unpacked from ASAR:
+
+- Native Node.js addons (`.node` files)
+- Files accessed by external processes
+- Files that need to be executable
+
+```json package.json
+{
+  "build": {
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/sharp/**/*",
+      "**/node_modules/sqlite3/**/*",
+      "**/node_modules/**/*.node"
+    ]
+  }
+}
+```
+
+<Note>
+electron-builder automatically unpacks `.node` files by default. You only need to explicitly specify `asarUnpack` for special cases.
+</Note>
+
+### Disabling ASAR
+
+For development or specific use cases, you can disable ASAR:
+
+```json
+{
+  "build": {
+    "asar": false
+  }
+}
+```
+
+<Warning>
+Disabling ASAR increases the number of files in your package, which can slow down application startup, especially on Windows.
+</Warning>
+
+## File Configuration Options
+
+### files
+
+Specifies which files to include in the application:
+
+```json package.json
+{
+  "build": {
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "package.json",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,__pycache__,thumbs.db,.gitignore}"
+    ]
+  }
+}
+```
+
+<Note>
+See [File Patterns](/concepts/file-patterns) for detailed information on glob pattern syntax.
+</Note>
+
+### extraResources
+
+Files to copy to the app's resources directory (outside ASAR):
+
+```json package.json
+{
+  "build": {
+    "extraResources": [
+      {
+        "from": "assets/",
+        "to": ".",
+        "filter": ["**/*"]
+      },
+      "LICENSE.txt",
+      "bin/helper"
+    ]
+  }
+}
+```
+
+**Location in packaged app:**
+- macOS: `Contents/Resources/`
+- Windows: `resources/`
+- Linux: `resources/`
+
+**Accessing in code:**
+```javascript
+import path from 'path'
+import { app } from 'electron'
+
+const resourcesPath = process.resourcesPath
+const assetPath = path.join(resourcesPath, 'assets', 'icon.png')
+```
+
+### extraFiles
+
+Files to copy to the app's output directory (outside ASAR and resources):
+
+```json package.json
+{
+  "build": {
+    "extraFiles": [
+      {
+        "from": "bin/${os}/",
+        "to": ".",
+        "filter": ["**/*"]
+      },
+      "README.md"
+    ]
+  }
+}
+```
+
+**Location in packaged app:**
+- macOS: `Contents/` (app contents root)
+- Windows: App directory root
+- Linux: App directory root
+
+### FileSet Configuration
+
+Both `extraResources` and `extraFiles` support FileSet configuration:
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "extraResources": [
+      {
+        "from": "build/assets/",
+        "to": "assets",
+        "filter": [
+          "**/*",
+          "!**/*.map"
+        ]
+      }
+    ]
+  }
+}
+```
+
+```yaml electron-builder.yml
+extraResources:
+  - from: build/assets/
+    to: assets
+    filter:
+      - "**/*"
+      - "!**/*.map"
+```
+</CodeGroup>
+
+**FileSet interface:**
+```typescript
+interface FileSet {
+  /**
+   * The source path relative to the project directory.
+   */
+  from?: string
+  
+  /**
+   * The destination path relative to the app's resources/output directory.
+   */
+  to?: string
+  
+  /**
+   * The glob patterns to filter files.
+   */
+  filter?: Array<string> | string
+}
+```
+
+## Application Directory Structure
+
+### Packaged App Structure
+
+<Tabs>
+  <Tab title="macOS">
+    ```
+    MyApp.app/
+    ├── Contents/
+    │   ├── MacOS/
+    │   │   └── MyApp              # Executable
+    │   ├── Resources/
+    │   │   ├── app.asar           # Your application
+    │   │   ├── app.asar.unpacked/ # Unpacked files
+    │   │   └── ...                # Extra resources
+    │   ├── Frameworks/            # Electron framework
+    │   └── Info.plist
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    ```
+    MyApp/
+    ├── MyApp.exe                  # Executable
+    ├── resources/
+    │   ├── app.asar               # Your application
+    │   ├── app.asar.unpacked/     # Unpacked files
+    │   └── ...                    # Extra resources
+    ├── locales/
+    └── ...                        # Electron files
+    ```
+  </Tab>
+  
+  <Tab title="Linux">
+    ```
+    myapp/
+    ├── myapp                      # Executable
+    ├── resources/
+    │   ├── app.asar               # Your application
+    │   ├── app.asar.unpacked/     # Unpacked files
+    │   └── ...                    # Extra resources
+    ├── locales/
+    └── ...                        # Electron files
+    ```
+  </Tab>
+</Tabs>
+
+## Optimizing Application Size
+
+### 1. Remove Unnecessary Dependencies
+
+Move development dependencies to `devDependencies`:
+
+```json package.json
+{
+  "dependencies": {
+    "electron-store": "^8.0.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0",
+    "webpack": "^5.0.0"
+  }
+}
+```
+
+### 2. Exclude Development Files
+
+```json
+{
+  "build": {
+    "files": [
+      "**/*",
+      "!src${/*}",
+      "!**/*.ts",
+      "!**/*.map",
+      "!**/{.eslintrc,.prettierrc,tsconfig.json}",
+      "!**/node_modules/**/{test,__tests__,tests}${/*}"
+    ]
+  }
+}
+```
+
+### 3. Use Compression
+
+```json
+{
+  "build": {
+    "compression": "maximum",
+    "asar": true
+  }
+}
+```
+
+<Note>
+Compression levels: `store` (no compression), `normal` (default), `maximum`
+</Note>
+
+### 4. Remove Metadata
+
+```json
+{
+  "build": {
+    "removePackageScripts": true,
+    "removePackageKeywords": true
+  }
+}
+```
+
+## Accessing Packaged Resources
+
+### From Main Process
+
+```javascript main.js
+import { app } from 'electron'
+import path from 'path'
+import fs from 'fs'
+
+// App directory (inside asar)
+const appPath = app.getAppPath()
+const configPath = path.join(appPath, 'config', 'settings.json')
+
+// Resources directory (outside asar)
+const resourcesPath = process.resourcesPath
+const assetPath = path.join(resourcesPath, 'assets', 'icon.png')
+
+// Read from asar
+const config = fs.readFileSync(configPath, 'utf8')
+
+// Read from resources
+const icon = fs.readFileSync(assetPath)
+```
+
+### From Renderer Process
+
+```javascript renderer.js
+const path = require('path')
+const fs = require('fs')
+
+// Using preload script (recommended)
+const { getResourcePath } = require('electron').ipcRenderer
+
+// Or direct access (if nodeIntegration is enabled)
+const isDev = process.env.NODE_ENV === 'development'
+const basePath = isDev
+  ? process.cwd()
+  : process.resourcesPath
+
+const assetPath = path.join(basePath, 'assets', 'data.json')
+```
+
+## Build Hooks for File Processing
+
+Use hooks to process files during the build:
+
+```javascript electron-builder.config.js
+export default {
+  // ... other config
+  hooks: {
+    onNodeModuleFile: async (file) => {
+      // Return true to force include, false to exclude
+      if (file.endsWith('.d.ts')) {
+        return false // Exclude TypeScript definition files
+      }
+    }
+  }
+}
+```
+
+<Note>
+See the [Build Configuration](/concepts/build-configuration) page for more information on build hooks.
+</Note>
+
+## Development vs Production
+
+### Development Configuration
+
+```json
+{
+  "build": {
+    "asar": false,
+    "compression": "store",
+    "directories": {
+      "output": "dist-dev"
+    }
+  }
+}
+```
+
+### Production Configuration
+
+```json
+{
+  "build": {
+    "asar": true,
+    "compression": "maximum",
+    "directories": {
+      "output": "dist"
+    },
+    "electronFuses": {
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    }
+  }
+}
+```

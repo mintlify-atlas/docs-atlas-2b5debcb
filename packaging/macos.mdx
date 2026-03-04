@@ -1,0 +1,257 @@
+---
+title: Building for macOS
+description: Build DMG, PKG, and Mac App Store targets for macOS distribution
+---
+
+The top-level `mac` configuration contains options for building macOS targets. These options apply to all macOS target types including DMG, PKG, and MAS.
+
+## macOS Targets Overview
+
+<CardGroup cols={3}>
+  <Card title="DMG" icon="circle-dot" href="#dmg-configuration">
+    Disk image format for direct distribution
+  </Card>
+  <Card title="PKG" icon="box" href="#pkg-configuration">
+    macOS installer component package
+  </Card>
+  <Card title="MAS" icon="store" href="#mas-configuration">
+    Mac App Store distribution target
+  </Card>
+</CardGroup>
+
+## Base macOS Configuration
+
+The `mac` key in your electron-builder configuration applies to all macOS targets:
+
+```json
+{
+  "build": {
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "pkg"],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    }
+  }
+}
+```
+
+<Note>
+For detailed macOS configuration options, see the [MacConfiguration](/api/interfaces/MacConfiguration) interface reference.
+</Note>
+
+## DMG Configuration
+
+The `dmg` key configures [Apple Disk Image](https://en.wikipedia.org/wiki/Apple_Disk_Image) builds for direct distribution to users.
+
+### Basic DMG Example
+
+<Tabs>
+  <Tab title="JSON">
+    ```json
+    {
+      "build": {
+        "dmg": {
+          "icon": "build/icon.icns",
+          "background": "build/background.png",
+          "window": {
+            "width": 540,
+            "height": 380
+          },
+          "contents": [
+            {
+              "x": 140,
+              "y": 180
+            },
+            {
+              "x": 400,
+              "y": 180,
+              "type": "link",
+              "path": "/Applications"
+            }
+          ]
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="YAML">
+    ```yaml
+    build:
+      dmg:
+        icon: build/icon.icns
+        background: build/background.png
+        window:
+          width: 540
+          height: 380
+        contents:
+          - x: 140
+            y: 180
+          - x: 400
+            y: 180
+            type: link
+            path: /Applications
+    ```
+  </Tab>
+</Tabs>
+
+### DMG License
+
+To add a license agreement to your DMG, create license files in your build resources directory:
+
+<Steps>
+  <Step title="Create license files">
+    Create files named `license_LANG_CODE.txt` in your build resources directory. For example:
+    - `license_en.txt` (English)
+    - `license_de.txt` (German)
+    - `license_ru.txt` (Russian)
+  </Step>
+  <Step title="Customize button labels (optional)">
+    Create `licenseButtons_LANG_CODE.json` files to customize button labels:
+    
+    ```json
+    {
+      "lang": "English",
+      "agree": "Agree",
+      "disagree": "Disagree",
+      "print": "Print",
+      "save": "Save",
+      "description": "Here is my own description"
+    }
+    ```
+  </Step>
+  <Step title="Build">
+    The appropriate license will be displayed based on the user's OS language. See the [ISO 639-1 language codes](https://github.com/meikidd/iso-639-1/blob/master/src/data.js) for supported codes.
+  </Step>
+</Steps>
+
+<Note>
+For complete DMG configuration options, see the [DmgOptions](/api/interfaces/DmgOptions) interface reference.
+</Note>
+
+## PKG Configuration
+
+The `pkg` key configures [PKG installer](https://developer.apple.com/library/archive/documentation/DeveloperTools/Reference/DistributionDefinitionRef/Chapters/Introduction.html) builds for macOS.
+
+### Basic PKG Example
+
+```json
+{
+  "build": {
+    "pkg": {
+      "license": "build/license.txt",
+      "installLocation": "/Applications",
+      "allowAnywhere": true,
+      "allowCurrentUserHome": true,
+      "allowRootDirectory": false
+    }
+  }
+}
+```
+
+<Note>
+PKG installers require macOS code signing. For complete PKG configuration options, see the [PkgOptions](/api/interfaces/PkgOptions) interface reference.
+</Note>
+
+## MAS Configuration
+
+The `mas` key configures Mac App Store (MAS) builds. This target inherits all base [macOS options](#base-macos-configuration).
+
+### MAS Example
+
+<Tabs>
+  <Tab title="JSON">
+    ```json
+    {
+      "build": {
+        "mas": {
+          "type": "distribution",
+          "category": "public.app-category.productivity",
+          "entitlements": "build/entitlements.mas.plist",
+          "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+          "provisioningProfile": "build/embedded.provisionprofile",
+          "hardenedRuntime": false
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="YAML">
+    ```yaml
+    build:
+      mas:
+        type: distribution
+        category: public.app-category.productivity
+        entitlements: build/entitlements.mas.plist
+        entitlementsInherit: build/entitlements.mas.inherit.plist
+        provisioningProfile: build/embedded.provisionprofile
+        hardenedRuntime: false
+    ```
+  </Tab>
+</Tabs>
+
+### MAS Entitlements
+
+Mac App Store apps require specific entitlements. Create `entitlements.mas.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <key>com.apple.security.application-groups</key>
+    <array>
+      <string>TEAM_ID.your.bundle.id</string>
+    </array>
+  </dict>
+</plist>
+```
+
+<Note>
+MAS builds require an Apple Developer account, provisioning profiles, and App Store certificates. For complete MAS configuration options, see the [MasConfiguration](/api/interfaces/MasConfiguration) interface reference.
+</Note>
+
+## Building Multiple Targets
+
+You can build multiple macOS targets in a single build:
+
+```bash
+# Build both DMG and PKG
+electron-builder --mac dmg pkg
+
+# Build all macOS targets
+electron-builder --mac
+```
+
+<Tabs>
+  <Tab title="CLI">
+    ```bash
+    # Specific targets
+    electron-builder --mac dmg
+    electron-builder --mac pkg
+    electron-builder --mac mas
+    
+    # Multiple targets
+    electron-builder --mac dmg pkg
+    ```
+  </Tab>
+  <Tab title="package.json">
+    ```json
+    {
+      "build": {
+        "mac": {
+          "target": [
+            "dmg",
+            "pkg",
+            "mas"
+          ]
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>

@@ -1,0 +1,348 @@
+---
+title: app-builder-lib Module
+description: Core library for building Electron applications
+---
+
+The `app-builder-lib` module is the core library used by electron-builder. It provides the `Packager` class and all configuration interfaces.
+
+## Installation
+
+```bash
+npm install app-builder-lib --save-dev
+```
+
+## Main Function
+
+### build()
+
+Builds the application with the specified options.
+
+```typescript
+function build(
+  options: PackagerOptions & PublishOptions,
+  packager?: Packager
+): Promise<Array<string>>
+```
+
+Source: `packages/app-builder-lib/src/index.ts:82`
+
+<ParamField path="options" type="PackagerOptions & PublishOptions" required>
+  Build and publish options.
+</ParamField>
+
+<ParamField path="packager" type="Packager">
+  Optional Packager instance. If not provided, a new one is created.
+</ParamField>
+
+**Returns:** `Promise<Array<string>>` - Paths to built artifacts.
+
+## Packager Class
+
+The main packager class that orchestrates the build process.
+
+### Constructor
+
+```typescript
+new Packager(options: PackagerOptions)
+```
+
+<ParamField path="options" type="PackagerOptions" required>
+  Packager configuration options.
+</ParamField>
+
+### Properties
+
+<ParamField path="appInfo" type="AppInfo" readonly>
+  Application metadata and information.
+</ParamField>
+
+<ParamField path="config" type="Configuration" readonly>
+  Resolved build configuration.
+</ParamField>
+
+<ParamField path="projectDir" type="string" readonly>
+  The project directory path.
+</ParamField>
+
+<ParamField path="cancellationToken" type="CancellationToken" readonly>
+  Token for cancelling the build process.
+</ParamField>
+
+### Methods
+
+#### build()
+
+Executes the build process.
+
+```typescript
+build(): Promise<BuildResult>
+```
+
+**Returns:** `Promise<BuildResult>` - Build result with artifact paths and configuration.
+
+## BuildResult Interface
+
+The result of a build operation.
+
+```typescript
+interface BuildResult {
+  readonly artifactPaths: Array<string>
+  readonly configuration: Configuration
+  readonly platformToTargets: Map<Platform, Map<string, Target>>
+}
+```
+
+<ParamField path="artifactPaths" type="Array<string>">
+  Paths to all built artifacts.
+</ParamField>
+
+<ParamField path="configuration" type="Configuration">
+  The configuration used for the build.
+</ParamField>
+
+<ParamField path="platformToTargets" type="Map<Platform, Map<string, Target>>">
+  Map of platforms to their targets.
+</ParamField>
+
+## Platform Packagers
+
+Platform-specific packager classes.
+
+### MacPackager
+
+Packager for macOS applications.
+
+```typescript
+class MacPackager extends PlatformPackager<MacConfiguration>
+```
+
+**Methods:**
+
+- `pack(outDir: string, arch: Arch, targets: Array<Target>): Promise<void>`
+- `sign(path: string, options?: CustomMacSignOptions): Promise<void>`
+
+### WinPackager
+
+Packager for Windows applications.
+
+```typescript
+class WinPackager extends PlatformPackager<WindowsConfiguration>
+```
+
+**Methods:**
+
+- `pack(outDir: string, arch: Arch, targets: Array<Target>): Promise<void>`
+- `sign(file: string): Promise<void>`
+
+### LinuxPackager
+
+Packager for Linux applications.
+
+```typescript
+class LinuxPackager extends PlatformPackager<LinuxConfiguration>
+```
+
+**Methods:**
+
+- `pack(outDir: string, arch: Arch, targets: Array<Target>): Promise<void>`
+
+## AppInfo Class
+
+Provides application information from package.json and configuration.
+
+### Properties
+
+<ParamField path="name" type="string" readonly>
+  Application name from package.json.
+</ParamField>
+
+<ParamField path="productName" type="string" readonly>
+  Product name (defaults to name if not specified).
+</ParamField>
+
+<ParamField path="version" type="string" readonly>
+  Application version.
+</ParamField>
+
+<ParamField path="buildVersion" type="string" readonly>
+  Build version (may include build number).
+</ParamField>
+
+<ParamField path="description" type="string" readonly>
+  Application description.
+</ParamField>
+
+<ParamField path="copyright" type="string" readonly>
+  Copyright string.
+</ParamField>
+
+<ParamField path="productFilename" type="string" readonly>
+  Safe filename for the product.
+</ParamField>
+
+## Target Class
+
+Abstract base class for build targets.
+
+```typescript
+abstract class Target {
+  abstract readonly outDir: string
+  abstract readonly options: TargetSpecificOptions | null
+  
+  constructor(
+    readonly name: string,
+    readonly isAsyncSupported: boolean = true
+  )
+  
+  abstract build(appOutDir: string, arch: Arch): Promise<any>
+  async finishBuild(): Promise<any>
+}
+```
+
+Source: `packages/app-builder-lib/src/core.ts:74`
+
+<ParamField path="name" type="string" readonly>
+  Target name (e.g., "dmg", "nsis").
+</ParamField>
+
+<ParamField path="outDir" type="string" readonly>
+  Output directory for this target.
+</ParamField>
+
+<ParamField path="options" type="TargetSpecificOptions | null" readonly>
+  Target-specific options.
+</ParamField>
+
+## Core Enums and Types
+
+### CompressionLevel
+
+```typescript
+type CompressionLevel = "store" | "normal" | "maximum"
+```
+
+- `store` - No compression (fastest)
+- `normal` - Standard compression (default)
+- `maximum` - Maximum compression (slowest)
+
+### DIR_TARGET
+
+```typescript
+const DIR_TARGET = "dir"
+```
+
+Special target name for unpacked directory output.
+
+### DEFAULT_TARGET
+
+```typescript
+const DEFAULT_TARGET = "default"
+```
+
+Indicates platform default targets should be used.
+
+## Utility Functions
+
+### checkBuildRequestOptions()
+
+Validates build options.
+
+```typescript
+function checkBuildRequestOptions(options: PackagerOptions & PublishOptions): void
+```
+
+Throws `InvalidConfigurationError` if unknown options are provided.
+
+## Exported Modules
+
+### Configuration
+
+- `Configuration` - Main configuration
+- `CommonConfiguration` - Common config options
+- `Hooks` - Lifecycle hooks
+- `MetadataDirectories` - Directory configuration
+- `ToolsetConfig` - Toolset versions
+
+### Platform Options
+
+- `MacConfiguration`, `DmgOptions`, `PkgOptions`, `MasConfiguration`
+- `WindowsConfiguration`, `NsisOptions`, `AppXOptions`, `MsiOptions`
+- `LinuxConfiguration`, `DebOptions`, `AppImageOptions`, `SnapOptions`
+
+### Build Options
+
+- `PlatformSpecificBuildOptions`
+- `FilesBuildOptions`
+- `AsarOptions`
+- `FileSet`
+
+### Metadata
+
+- `Metadata` - package.json metadata
+- `AuthorMetadata` - Author info
+- `RepositoryInfo` - Repository info
+
+### Protocols and Associations
+
+- `Protocol` - URL protocol schemes
+- `FileAssociation` - File associations
+
+### Code Signing
+
+- `WindowsSignOptions`
+- `CustomWindowsSign`, `CustomWindowsSignTaskConfiguration`
+- `CustomMacSign`, `CustomMacSignOptions`
+- `CertificateFromStoreInfo`, `FileCodeSigningInfo`
+
+### Electron Options
+
+- `ElectronDownloadOptions`
+- `ElectronBrandingOptions`
+
+### Events
+
+- `ArtifactCreated`
+- `ArtifactBuildStarted`
+
+### Contexts
+
+- `BeforeBuildContext`
+- `BeforePackContext`
+- `AfterPackContext`
+- `AfterExtractContext`
+- `PackContext`
+
+## Forge Integration
+
+### buildForge()
+
+Builds using Electron Forge maker configuration.
+
+```typescript
+function buildForge(
+  forgeOptions: ForgeOptions,
+  options?: PackagerOptions
+): Promise<Array<string>>
+```
+
+## Import Examples
+
+### CommonJS
+
+```javascript
+const { build, Packager, Platform } = require("app-builder-lib")
+```
+
+### ES Modules / TypeScript
+
+```typescript
+import { build, Packager, Platform } from "app-builder-lib"
+import type { Configuration, PackagerOptions, BuildResult } from "app-builder-lib"
+```
+
+## See Also
+
+- [Configuration Interface](/api/interfaces/configuration)
+- [PackagerOptions Interface](/api/interfaces/packager-options)
+- [Platform-Specific Options](/api/interfaces/platform-options)
+- [electron-builder Module](/api/electron-builder)

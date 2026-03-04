@@ -1,0 +1,596 @@
+---
+title: Build Hooks
+description: Build lifecycle hooks in electron-builder for customizing the build process
+---
+
+Build hooks allow you to execute custom code at various stages of the electron-builder build process. Hooks can be defined as functions directly in the configuration or as paths to external modules.
+
+<Note>
+All examples assume you are using Node.js 8.11.x or higher.
+</Note>
+
+## Hook Configuration
+
+Hooks can be specified in two ways:
+
+### As a Function (JS/TS config only)
+
+```javascript
+// electron-builder.config.js
+module.exports = {
+  beforePack: async (context) => {
+    console.log('Before pack:', context.appOutDir)
+    // Your custom code
+  },
+  afterPack: async (context) => {
+    console.log('After pack:', context.appOutDir)
+    // Your custom code
+  }
+}
+```
+
+### As a Path to Module
+
+When using JSON or YAML configuration, specify the path to a file that exports the hook function:
+
+```json
+{
+  "build": {
+    "beforePack": "./build-hooks/beforePack.js",
+    "afterPack": "./build-hooks/afterPack.js"
+  }
+}
+```
+
+The hook file should export the function as the default export:
+
+```javascript
+// build-hooks/beforePack.js
+exports.default = async function(context) {
+  // Your custom code
+  console.log('Platform:', context.electronPlatformName)
+  console.log('Architecture:', context.arch)
+}
+```
+
+## Available Hooks
+
+### beforePack
+
+<ParamField path="beforePack" type="function | string">
+  The function (or path to file or module id) to be run before pack.
+  
+  **Function signature:**
+  ```typescript
+  (context: BeforePackContext): Promise<void> | void
+  ```
+
+  **Context properties:**
+  - `outDir` - The output directory
+  - `appOutDir` - The application output directory
+  - `packager` - The platform packager instance
+  - `electronPlatformName` - The Electron platform name (e.g., 'darwin', 'win32', 'linux')
+  - `arch` - The architecture being built
+  - `targets` - Array of build targets
+
+  **Example:**
+  ```javascript
+  // electron-builder.config.js
+  module.exports = {
+    beforePack: async (context) => {
+      console.log('Starting build for', context.electronPlatformName)
+      console.log('Output directory:', context.appOutDir)
+      
+      // Example: Copy additional files
+      const fs = require('fs-extra')
+      await fs.copy('extra-resources', context.appOutDir)
+    }
+  }
+  ```
+
+  **As external file:**
+  ```json
+  {
+    "build": {
+      "beforePack": "./hooks/beforePack.js"
+    }
+  }
+  ```
+
+  ```javascript
+  // hooks/beforePack.js
+  exports.default = async function(context) {
+    // Custom pre-pack logic
+  }
+  ```
+</ParamField>
+
+### afterExtract
+
+<ParamField path="afterExtract" type="function | string">
+  The function (or path to file or module id) to be run after the prebuilt Electron binary has been extracted to the output directory.
+  
+  **Function signature:**
+  ```typescript
+  (context: AfterExtractContext): Promise<void> | void
+  ```
+
+  This hook is useful for modifying the Electron binary or adding custom files before the app is packaged.
+
+  **Example:**
+  ```javascript
+  module.exports = {
+    afterExtract: async (context) => {
+      console.log('Electron extracted to:', context.appOutDir)
+      
+      // Example: Replace FFmpeg with custom build
+      const path = require('path')
+      const fs = require('fs-extra')
+      
+      const ffmpegPath = path.join(context.appOutDir, 'libffmpeg.so')
+      await fs.copy('custom-ffmpeg/libffmpeg.so', ffmpegPath)
+    }
+  }
+  ```
+</ParamField>
+
+### afterPack
+
+<ParamField path="afterPack" type="function | string">
+  The function (or path to file or module id) to be run after pack (but before pack into distributable format and sign).
+  
+  **Function signature:**
+  ```typescript
+  (context: AfterPackContext): Promise<void> | void
+  ```
+
+  This is one of the most commonly used hooks, allowing you to modify the packaged app before it's signed and distributed.
+
+  **Example:**
+  ```javascript
+  module.exports = {
+    afterPack: async (context) => {
+      const fs = require('fs-extra')
+      const path = require('path')
+      
+      // Example: Add a file to the packaged app
+      const licenseFile = path.join(context.appOutDir, 'LICENSE.txt')
+      await fs.writeFile(licenseFile, 'Your license text here')
+      
+      // Example: Modify package.json
+      const packageJsonPath = path.join(
+        context.appOutDir,
+        'resources',
+        'app.asar.unpacked',
+        'package.json'
+      )
+      if (await fs.pathExists(packageJsonPath)) {
+        const packageJson = await fs.readJson(packageJsonPath)
+        packageJson.custom = 'value'
+        await fs.writeJson(packageJsonPath, packageJson)
+      }
+    }
+  }
+  ```
+</ParamField>
+
+### afterSign
+
+<ParamField path="afterSign" type="function | string">
+  The function (or path to file or module id) to be run after pack and sign (but before pack into distributable format).
+  
+  **Function signature:**
+  ```typescript
+  (context: AfterPackContext): Promise<void> | void
+  ```
+
+  This hook is particularly useful for notarizing macOS applications.
+
+  **Example - macOS Notarization:**
+  ```javascript
+  module.exports = {
+    afterSign: async (context) => {
+      // Only notarize on macOS
+      if (context.electronPlatformName !== 'darwin') {
+        return
+      }
+
+      const { notarize } = require('@electron/notarize')
+      const appName = context.packager.appInfo.productFilename
+
+      await notarize({
+        appBundleId: 'com.example.app',
+        appPath: `${context.appOutDir}/${appName}.app`,
+        appleId: process.env.APPLE_ID,
+        appleIdPassword: process.env.APPLE_ID_PASSWORD,
+        teamId: process.env.APPLE_TEAM_ID
+      })
+    }
+  }
+  ```
+
+  **As external file:**
+  ```json
+  {
+    "build": {
+      "afterSign": "./hooks/notarize.js"
+    }
+  }
+  ```
+
+  ```javascript
+  // hooks/notarize.js
+  const { notarize } = require('@electron/notarize')
+
+  exports.default = async function notarizing(context) {
+    const { electronPlatformName, appOutDir } = context
+    if (electronPlatformName !== 'darwin') {
+      return
+    }
+
+    const appName = context.packager.appInfo.productFilename
+
+    return await notarize({
+      appBundleId: 'com.example.app',
+      appPath: `${appOutDir}/${appName}.app`,
+      appleId: process.env.APPLE_ID,
+      appleIdPassword: process.env.APPLE_ID_PASSWORD
+    })
+  }
+  ```
+</ParamField>
+
+### artifactBuildStarted
+
+<ParamField path="artifactBuildStarted" type="function | string">
+  The function (or path to file or module id) to be run when artifact build starts.
+  
+  **Function signature:**
+  ```typescript
+  (context: ArtifactBuildStarted): Promise<void> | void
+  ```
+
+  **Example:**
+  ```javascript
+  module.exports = {
+    artifactBuildStarted: async (context) => {
+      console.log('Building artifact:', context.file)
+      console.log('Target:', context.target)
+    }
+  }
+  ```
+</ParamField>
+
+### artifactBuildCompleted
+
+<ParamField path="artifactBuildCompleted" type="function | string">
+  The function (or path to file or module id) to be run when artifact build completes.
+  
+  **Function signature:**
+  ```typescript
+  (context: ArtifactCreated): Promise<void> | void
+  ```
+
+  **Context properties:**
+  - `file` - The output file path
+  - `target` - The build target
+  - `arch` - The architecture
+  - `packager` - The platform packager instance
+
+  **Example:**
+  ```javascript
+  module.exports = {
+    artifactBuildCompleted: async (context) => {
+      const fs = require('fs-extra')
+      const crypto = require('crypto')
+      
+      // Generate checksum for the artifact
+      const fileBuffer = await fs.readFile(context.file)
+      const hashSum = crypto.createHash('sha256')
+      hashSum.update(fileBuffer)
+      
+      const hex = hashSum.digest('hex')
+      await fs.writeFile(`${context.file}.sha256`, hex)
+      
+      console.log('Artifact completed:', context.file)
+      console.log('SHA256:', hex)
+    }
+  }
+  ```
+</ParamField>
+
+### afterAllArtifactBuild
+
+<ParamField path="afterAllArtifactBuild" type="function | string">
+  The function (or path to file or module id) to be run after all artifacts are built.
+  
+  **Function signature:**
+  ```typescript
+  (buildResult: BuildResult): Promise<string[]> | string[]
+  ```
+
+  This hook can return an array of additional files to publish.
+
+  **Example:**
+  ```javascript
+  module.exports = {
+    afterAllArtifactBuild: async (buildResult) => {
+      console.log('All artifacts built!')
+      console.log('Output directory:', buildResult.outDir)
+      console.log('Artifacts:', buildResult.artifactPaths)
+      
+      // Example: Generate release notes
+      const fs = require('fs-extra')
+      const path = require('path')
+      
+      const releaseNotesPath = path.join(buildResult.outDir, 'RELEASE_NOTES.md')
+      await fs.writeFile(releaseNotesPath, '# Release Notes\n\n...')
+      
+      // Return additional files to publish
+      return [releaseNotesPath]
+    }
+  }
+  ```
+
+  **As external file:**
+  ```javascript
+  // hooks/afterAllArtifactBuild.js
+  exports.default = async function(buildResult) {
+    // Generate additional files
+    // Return array of file paths to publish
+    return ['/path/to/additional/file']
+  }
+  ```
+</ParamField>
+
+### beforeBuild
+
+<ParamField path="beforeBuild" type="function | string">
+  The function (or path to file or module id) to be run before dependencies are installed or rebuilt.
+  
+  Works when `npmRebuild` is set to `true`. Resolving to `false` will skip dependencies install or rebuild.
+  
+  **Function signature:**
+  ```typescript
+  (context: BeforeBuildContext): Promise<boolean | void> | boolean | void
+  ```
+
+  <Note>
+  If provided and `node_modules` are missing, it will not invoke production dependencies check.
+  </Note>
+
+  **Example:**
+  ```javascript
+  module.exports = {
+    beforeBuild: async (context) => {
+      console.log('Before building dependencies')
+      console.log('Platform:', context.platform)
+      console.log('Arch:', context.arch)
+      
+      // Return false to skip dependency rebuild
+      // return false
+      
+      // Or return true/undefined to continue
+      return true
+    }
+  }
+  ```
+</ParamField>
+
+### onNodeModuleFile
+
+<ParamField path="onNodeModuleFile" type="function | string">
+  The function (or path to file or module id) to be run on each node module file.
+  
+  Returning `true` will force include the file, `false` will exclude it, and `undefined` will use the default copier logic.
+  
+  **Function signature:**
+  ```typescript
+  (file: string): void | boolean
+  ```
+
+  **Example:**
+  ```javascript
+  module.exports = {
+    onNodeModuleFile: (file) => {
+      // Example: Force include specific files
+      if (file.endsWith('.node')) {
+        console.log('Including native module:', file)
+        return true
+      }
+      
+      // Example: Exclude test files
+      if (file.includes('/test/') || file.includes('/__tests__/')) {
+        return false
+      }
+      
+      // Use default logic
+      return undefined
+    }
+  }
+  ```
+</ParamField>
+
+### msiProjectCreated
+
+<ParamField path="msiProjectCreated" type="function | string">
+  The function (or path to file or module id) to be run after MSI project is created on disk (not packed into .msi package yet).
+  
+  **Function signature:**
+  ```typescript
+  (path: string): Promise<void> | void
+  ```
+
+  **Example:**
+  ```javascript
+  module.exports = {
+    msiProjectCreated: async (projectPath) => {
+      console.log('MSI project created at:', projectPath)
+      // Modify MSI project files if needed
+    }
+  }
+  ```
+</ParamField>
+
+### appxManifestCreated
+
+<ParamField path="appxManifestCreated" type="function | string">
+  The function (or path to file or module id) to be run after Appx manifest is created on disk (not packed into .appx package yet).
+  
+  **Function signature:**
+  ```typescript
+  (path: string): Promise<void> | void
+  ```
+
+  **Example:**
+  ```javascript
+  module.exports = {
+    appxManifestCreated: async (manifestPath) => {
+      console.log('Appx manifest created at:', manifestPath)
+      
+      // Example: Modify the manifest
+      const fs = require('fs-extra')
+      let manifest = await fs.readFile(manifestPath, 'utf8')
+      // Modify manifest content
+      await fs.writeFile(manifestPath, manifest)
+    }
+  }
+  ```
+</ParamField>
+
+### electronDist
+
+<ParamField path="electronDist" type="function | string">
+  The function (or path to file or module id) to be run when staging the Electron artifact environment.
+  
+  Returns the path to custom Electron build (e.g., `~/electron/out/R`) or folder of Electron zips.
+  
+  **Function signature:**
+  ```typescript
+  (options: PrepareApplicationStageDirectoryOptions): Promise<string> | string
+  ```
+
+  <Note>
+  Zip files must follow the pattern `electron-v${version}-${platformName}-${arch}.zip`, otherwise it will be assumed to be an unpacked Electron app directory.
+  </Note>
+
+  **Example:**
+  ```javascript
+  module.exports = {
+    electronDist: async (options) => {
+      // Return path to custom Electron build
+      return '/path/to/custom/electron/build'
+      
+      // Or return path to folder containing Electron zips
+      // return '/path/to/electron/zips'
+    }
+  }
+  ```
+</ParamField>
+
+## Common Hook Use Cases
+
+### Custom File Processing
+
+```javascript
+module.exports = {
+  afterPack: async (context) => {
+    const path = require('path')
+    const fs = require('fs-extra')
+    
+    // Minify or obfuscate JavaScript files
+    const appPath = path.join(context.appOutDir, 'resources', 'app')
+    // Your minification/obfuscation logic
+  }
+}
+```
+
+### Environment-Specific Configuration
+
+```javascript
+module.exports = {
+  beforePack: async (context) => {
+    const fs = require('fs-extra')
+    const path = require('path')
+    
+    // Copy environment-specific config
+    const configSrc = process.env.NODE_ENV === 'production'
+      ? 'config/production.json'
+      : 'config/development.json'
+    
+    const configDest = path.join(context.appOutDir, 'config.json')
+    await fs.copy(configSrc, configDest)
+  }
+}
+```
+
+### Generating Checksums
+
+```javascript
+module.exports = {
+  artifactBuildCompleted: async (context) => {
+    const fs = require('fs-extra')
+    const crypto = require('crypto')
+    
+    const hash = crypto.createHash('sha256')
+    const fileBuffer = await fs.readFile(context.file)
+    hash.update(fileBuffer)
+    
+    const checksum = hash.digest('hex')
+    await fs.writeFile(`${context.file}.sha256`, checksum)
+  }
+}
+```
+
+### Platform-Specific Logic
+
+```javascript
+module.exports = {
+  afterPack: async (context) => {
+    if (context.electronPlatformName === 'darwin') {
+      // macOS-specific logic
+    } else if (context.electronPlatformName === 'win32') {
+      // Windows-specific logic
+    } else if (context.electronPlatformName === 'linux') {
+      // Linux-specific logic
+    }
+  }
+}
+```
+
+## Best Practices
+
+<Note>
+1. **Keep hooks fast** - Hooks run during the build process, so keep them as efficient as possible
+2. **Handle errors properly** - Always use try-catch blocks and provide meaningful error messages
+3. **Use async/await** - Prefer async/await over callbacks for better readability
+4. **Log important actions** - Use console.log to track what your hooks are doing
+5. **Test thoroughly** - Test hooks with different platforms and configurations
+</Note>
+
+<Warning>
+Be careful when modifying files in hooks, especially signed files. Modifying signed binaries will invalidate signatures.
+</Warning>
+
+## Debugging Hooks
+
+To debug hooks, add verbose logging:
+
+```javascript
+module.exports = {
+  beforePack: async (context) => {
+    console.log('BeforePackContext:', JSON.stringify({
+      outDir: context.outDir,
+      appOutDir: context.appOutDir,
+      electronPlatformName: context.electronPlatformName,
+      arch: context.arch
+    }, null, 2))
+  }
+}
+```
+
+Run electron-builder with the `--verbose` flag for additional output:
+
+```bash
+electron-builder --verbose
+```

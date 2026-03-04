@@ -1,0 +1,200 @@
+---
+title: Linux Configuration
+description: Configuration options for building Linux packages with electron-builder
+---
+
+The top-level `linux` key contains set of options instructing electron-builder on how it should build Linux targets. These options applicable for any Linux target.
+
+electron-builder [docker image](/multi-platform-build#docker) can be used to build Linux targets on any platform.
+
+## Base Linux Configuration
+
+<ParamField path="target" type="string | TargetConfiguration">
+  Target package type: list of `AppImage`, `flatpak`, `snap`, `deb`, `rpm`, `freebsd`, `pacman`, `p5p`, `apk`, `7z`, `zip`, `tar.xz`, `tar.lz`, `tar.gz`, `tar.bz2`, `dir`.
+
+  Please [do not put an AppImage into another archive](https://github.com/probonopd/AppImageKit/wiki/Creating-AppImages#common-mistake) like a .zip or .tar.gz.
+
+  <Expandable title="default">
+    `AppImage`
+  </Expandable>
+</ParamField>
+
+<ParamField path="maintainer" type="string">
+  The maintainer. Defaults to [author](/configuration#author).
+</ParamField>
+
+<ParamField path="vendor" type="string">
+  The vendor. Defaults to [author](/configuration#author).
+</ParamField>
+
+<ParamField path="icon" type="string">
+  The path to icon set directory or one png file, relative to the [build resources](/contents#extraresources) or to the project directory. The icon filename must contain the size (e.g. 32x32.png) of the icon.
+
+  By default will be generated automatically based on the macOS icns file.
+</ParamField>
+
+<ParamField path="synopsis" type="string">
+  The [short description](https://www.debian.org/doc/debian-policy/ch-controlfields.html#s-f-Description).
+</ParamField>
+
+<ParamField path="description" type="string">
+  As [description](/configuration#description) from application package.json, but allows you to specify different for Linux.
+</ParamField>
+
+<ParamField path="category" type="string">
+  The [application category](https://specifications.freedesktop.org/menu-spec/latest/apa.html#main-category-registry).
+</ParamField>
+
+<ParamField path="mimeTypes" type="string[]">
+  The mime types in addition to specified in the file associations. Use it if you don't want to register a new mime type, but reuse existing.
+</ParamField>
+
+<ParamField path="desktop" type="LinuxDesktopFile">
+  The [Desktop file](https://developer.gnome.org/documentation/guidelines/maintainer/integrating.html#desktop-files)
+
+  <Expandable title="properties">
+    <ParamField path="desktop.entry" type="Record<string, string>">
+      `[Desktop Entry]` metadata entries (name to value). Overwrites default values calculated by electron-builder.
+
+      Example Spec: [freedesktop.org Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/latest/example.html)
+    </ParamField>
+
+    <ParamField path="desktop.desktopActions" type="Record<string, any>">
+      `[Desktop Actions <ActionName>]` metadata entries (name to value).
+
+      ```js
+      desktopActions: {
+        NewWindow: {
+          Name: 'New Window',
+          Exec: 'app --new-window',
+        }
+      }
+      ```
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="executableArgs" type="string[]">
+  The executable parameters. Pass to executableName
+</ParamField>
+
+---
+
+## Debian Package Options
+
+The top-level `deb` key contains set of options instructing electron-builder on how it should build Debian package.
+
+All [LinuxTargetSpecificOptions](#linuxtargetspecificoptions) can be also specified in the `deb` to customize Debian package.
+
+<ParamField path="depends" type="string[]">
+  Package dependencies.
+
+  If need to support Debian, `libappindicator1` should be removed, it is [deprecated in Debian](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=895037).
+
+  If need to support KDE, `gconf2` and `gconf-service` should be removed as it's no longer used [by GNOME](https://packages.debian.org/bullseye/gconf2).
+
+  <Expandable title="default">
+    `["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1", "libsecret-1-0"]`
+  </Expandable>
+</ParamField>
+
+<ParamField path="recommends" type="string[]">
+  The [recommended package dependencies](https://www.debian.org/doc/debian-policy/ch-relationships.html#s-binarydeps).
+
+  <Expandable title="default">
+    `["libappindicator3-1"]`
+  </Expandable>
+</ParamField>
+
+<ParamField path="packageCategory" type="string">
+  The [package category](https://www.debian.org/doc/debian-policy/ch-controlfields.html#s-f-Section).
+</ParamField>
+
+<ParamField path="priority" type="string">
+  The [Priority](https://www.debian.org/doc/debian-policy/ch-controlfields.html#s-f-Priority) attribute.
+</ParamField>
+
+---
+
+## LinuxTargetSpecificOptions
+
+APK, FreeBSD, Pacman, P5P and RPM Options
+
+The top-level `apk`, `freebsd`, `pacman`, `p5p` and `rpm` keys contains set of options instructing electron-builder on how it should build corresponding Linux target.
+
+<ParamField path="depends" type="string[]">
+  Package dependencies.
+
+  - `rpm` defaults to `["gtk3", "libnotify", "nss", "libXScrnSaver", "(libXtst or libXtst6)", "xdg-utils", "at-spi2-core", "(libuuid or libuuid1)"]`
+  - `pacman` defaults to `["c-ares", "ffmpeg", "gtk3", "http-parser", "libevent", "libvpx", "libxslt", "libxss", "minizip", "nss", "re2", "snappy", "libnotify", "libappindicator-gtk3"]`
+</ParamField>
+
+<ParamField path="compression" type="'gz' | 'bzip2' | 'xz' | 'lzo'">
+  The compression type.
+
+  <Expandable title="default">
+    `xz`
+  </Expandable>
+</ParamField>
+
+<ParamField path="icon" type="string">
+  The path to the icon file.
+</ParamField>
+
+<ParamField path="packageCategory" type="string">
+  The package category.
+</ParamField>
+
+<ParamField path="packageName" type="string">
+  The name of the package.
+</ParamField>
+
+<ParamField path="vendor" type="string">
+  The vendor.
+</ParamField>
+
+<ParamField path="maintainer" type="string">
+  The maintainer.
+</ParamField>
+
+<ParamField path="afterInstall" type="string">
+  File path to script to be passed to FPM for `--after-install` arg.
+</ParamField>
+
+<ParamField path="afterRemove" type="string">
+  File path to script to be passed to FPM for `--after-remove` arg.
+</ParamField>
+
+<ParamField path="appArmorProfile" type="string">
+  File path to custom AppArmor profile (Ubuntu 24+)
+</ParamField>
+
+<ParamField path="fpm" type="string[]">
+  *Advanced only* The [fpm](https://fpm.readthedocs.io/en/latest/cli-reference.html) options.
+
+  Example: `["--before-install=build/deb-preinstall.sh", "--after-upgrade=build/deb-postinstall.sh"]`
+</ParamField>
+
+<ParamField path="synopsis" type="string">
+  The [short description](https://www.debian.org/doc/debian-policy/ch-controlfields.html#s-f-Description).
+</ParamField>
+
+<ParamField path="description" type="string">
+  As [description](/configuration#description) from application package.json, but allows you to specify different for Linux.
+</ParamField>
+
+<ParamField path="category" type="string">
+  The [application category](https://specifications.freedesktop.org/menu-spec/latest/apa.html#main-category-registry).
+</ParamField>
+
+<ParamField path="mimeTypes" type="string[]">
+  The mime types in addition to specified in the file associations. Use it if you don't want to register a new mime type, but reuse existing.
+</ParamField>
+
+<ParamField path="desktop" type="LinuxDesktopFile">
+  The [Desktop file](https://developer.gnome.org/documentation/guidelines/maintainer/integrating.html#desktop-files)
+</ParamField>
+
+<ParamField path="executableArgs" type="string[]">
+  The executable parameters. Pass to executableName
+</ParamField>

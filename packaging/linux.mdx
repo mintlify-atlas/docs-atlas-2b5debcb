@@ -1,0 +1,537 @@
+---
+title: Building for Linux
+description: Build AppImage, Snap, Flatpak, deb, and rpm packages for Linux distribution
+---
+
+The top-level `linux` configuration contains options for building Linux targets. These options apply to all Linux target types including AppImage, Snap, Flatpak, deb, and rpm.
+
+## Linux Targets Overview
+
+<CardGroup cols={3}>
+  <Card title="AppImage" icon="image" href="#appimage">
+    Universal Linux package format
+  </Card>
+  <Card title="Snap" icon="cube" href="#snap">
+    Snapcraft package for Ubuntu and more
+  </Card>
+  <Card title="Debian" icon="box" href="#debian-package">
+    .deb packages for Debian-based systems
+  </Card>
+</CardGroup>
+
+## Base Linux Configuration
+
+The `linux` key in your electron-builder configuration applies to all Linux targets:
+
+```json
+{
+  "build": {
+    "linux": {
+      "target": ["AppImage", "deb", "snap"],
+      "category": "Utility",
+      "icon": "build/icons",
+      "maintainer": "Your Name <email@example.com>",
+      "vendor": "Your Company",
+      "synopsis": "Short description",
+      "description": "Longer description of your application"
+    }
+  }
+}
+```
+
+<Note>
+For detailed Linux configuration options, see the [LinuxConfiguration](/api/interfaces/LinuxConfiguration) interface reference.
+</Note>
+
+## AppImage
+
+[AppImage](https://appimage.org/) is a universal Linux package format that runs on most Linux distributions without installation.
+
+### Basic AppImage Configuration
+
+<Tabs>
+  <Tab title="JSON">
+    ```json
+    {
+      "build": {
+        "appImage": {
+          "license": "LICENSE",
+          "category": "Utility",
+          "synopsis": "Short description of your app"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="YAML">
+    ```yaml
+    build:
+      appImage:
+        license: LICENSE
+        category: Utility
+        synopsis: Short description of your app
+    ```
+  </Tab>
+</Tabs>
+
+### Desktop Integration
+
+<Note>
+Since electron-builder 21, desktop integration is not included in the AppImage file. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) is the recommended way to integrate AppImages with your desktop environment.
+</Note>
+
+### AppImage Example
+
+Build an AppImage with custom icon and desktop entry:
+
+```json
+{
+  "build": {
+    "linux": {
+      "target": "AppImage",
+      "category": "Development",
+      "icon": "build/icons"
+    },
+    "appImage": {
+      "license": "LICENSE",
+      "category": "Development",
+      "desktop": {
+        "StartupWMClass": "my-app",
+        "MimeType": "x-scheme-handler/myapp"
+      }
+    }
+  }
+}
+```
+
+<Note>
+For complete AppImage configuration options, see the [AppImageOptions](/api/interfaces/AppImageOptions) interface reference.
+</Note>
+
+## Snap
+
+[Snap](http://snapcraft.io) packages work across many Linux distributions and provide automatic updates.
+
+### Basic Snap Configuration
+
+<Tabs>
+  <Tab title="JSON">
+    ```json
+    {
+      "build": {
+        "snap": {
+          "confinement": "strict",
+          "grade": "stable",
+          "summary": "Short description for Snap store",
+          "plugs": [
+            "default",
+            "home",
+            "network",
+            "pulseaudio"
+          ]
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="YAML">
+    ```yaml
+    build:
+      snap:
+        confinement: strict
+        grade: stable
+        summary: Short description for Snap store
+        plugs:
+          - default
+          - home
+          - network
+          - pulseaudio
+    ```
+  </Tab>
+</Tabs>
+
+### Snap Confinement
+
+Choose the appropriate confinement level:
+
+- **strict** - Full confinement with limited system access (recommended)
+- **classic** - No confinement, full system access (requires manual review)
+- **devmode** - Development mode with warnings instead of errors
+
+### Advanced Snap Configuration
+
+```json
+{
+  "build": {
+    "snap": {
+      "confinement": "strict",
+      "grade": "stable",
+      "base": "core20",
+      "plugs": [
+        "default",
+        "home",
+        "network",
+        "network-bind",
+        "pulseaudio",
+        "x11",
+        "unity7",
+        "browser-support"
+      ],
+      "slots": [
+        "mpris"
+      ],
+      "buildPackages": [
+        "libsecret-1-dev"
+      ],
+      "stagePackages": [
+        "default",
+        "libsecret-1-0"
+      ]
+    }
+  }
+}
+```
+
+<Note>
+For complete Snap configuration options, see the [SnapOptions](/api/interfaces/SnapOptions) interface reference.
+</Note>
+
+## Debian Package
+
+Create `.deb` packages for Debian, Ubuntu, and other Debian-based distributions.
+
+### Basic Debian Configuration
+
+<Tabs>
+  <Tab title="JSON">
+    ```json
+    {
+      "build": {
+        "linux": {
+          "target": "deb"
+        },
+        "deb": {
+          "depends": [
+            "gconf2",
+            "gconf-service",
+            "libnotify4",
+            "libappindicator1"
+          ],
+          "recommends": [
+            "pulseaudio"
+          ],
+          "afterInstall": "build/deb-postinstall.sh",
+          "afterRemove": "build/deb-prerm.sh"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="YAML">
+    ```yaml
+    build:
+      linux:
+        target: deb
+      deb:
+        depends:
+          - gconf2
+          - gconf-service
+          - libnotify4
+          - libappindicator1
+        recommends:
+          - pulseaudio
+        afterInstall: build/deb-postinstall.sh
+        afterRemove: build/deb-prerm.sh
+    ```
+  </Tab>
+</Tabs>
+
+### Package Scripts
+
+Create post-install and pre-remove scripts:
+
+**build/deb-postinstall.sh**
+```bash
+#!/bin/bash
+
+# Update desktop database
+update-desktop-database /usr/share/applications
+
+# Update mime database
+update-mime-database /usr/share/mime
+```
+
+**build/deb-prerm.sh**
+```bash
+#!/bin/bash
+
+# Cleanup before removal
+echo "Removing application..."
+```
+
+<Note>
+Make sure scripts are executable: `chmod +x build/*.sh`
+</Note>
+
+### Debian Package Priorities
+
+```json
+{
+  "build": {
+    "deb": {
+      "priority": "optional",
+      "compression": "xz"
+    }
+  }
+}
+```
+
+Available priorities:
+- **required** - Essential for system operation
+- **important** - Important but not essential
+- **standard** - Standard system installations
+- **optional** - Optional packages (default)
+- **extra** - Conflicts with other packages
+
+<Note>
+For complete Debian configuration options, see the [DebOptions](/api/interfaces/DebOptions) interface reference.
+</Note>
+
+## RPM Package
+
+Create `.rpm` packages for Red Hat, Fedora, CentOS, and other RPM-based distributions.
+
+### Basic RPM Configuration
+
+<Tabs>
+  <Tab title="JSON">
+    ```json
+    {
+      "build": {
+        "linux": {
+          "target": "rpm"
+        },
+        "rpm": {
+          "depends": [
+            "libnotify",
+            "libappindicator"
+          ],
+          "fpm": [
+            "--rpm-rpmbuild-define",
+            "_build_id_links none"
+          ],
+          "afterInstall": "build/rpm-postinstall.sh",
+          "afterRemove": "build/rpm-prerm.sh"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="YAML">
+    ```yaml
+    build:
+      linux:
+        target: rpm
+      rpm:
+        depends:
+          - libnotify
+          - libappindicator
+        fpm:
+          - --rpm-rpmbuild-define
+          - _build_id_links none
+        afterInstall: build/rpm-postinstall.sh
+        afterRemove: build/rpm-prerm.sh
+    ```
+  </Tab>
+</Tabs>
+
+### RPM Package Groups
+
+```json
+{
+  "build": {
+    "rpm": {
+      "packageCategory": "Applications/Internet",
+      "license": "MIT",
+      "vendor": "Your Company"
+    }
+  }
+}
+```
+
+Common package categories:
+- `Applications/Internet`
+- `Applications/Development`
+- `Applications/Productivity`
+- `Applications/Multimedia`
+- `Applications/System`
+
+<Note>
+For complete RPM configuration options, see the [LinuxTargetSpecificOptions](/api/interfaces/LinuxTargetSpecificOptions) interface reference.
+</Note>
+
+## Other Linux Targets
+
+electron-builder supports additional Linux package formats:
+
+<CardGroup cols={3}>
+  <Card title="Flatpak" icon="layer-group">
+    ```json
+    {
+      "linux": {
+        "target": "flatpak"
+      }
+    }
+    ```
+  </Card>
+  <Card title="Pacman" icon="box-archive">
+    ```json
+    {
+      "linux": {
+        "target": "pacman"
+      }
+    }
+    ```
+    For Arch Linux and derivatives
+  </Card>
+  <Card title="APK" icon="mountain">
+    ```json
+    {
+      "linux": {
+        "target": "apk"
+      }
+    }
+    ```
+    For Alpine Linux
+  </Card>
+</CardGroup>
+
+### Target-Specific Configuration
+
+Each target can have its own configuration:
+
+```json
+{
+  "build": {
+    "pacman": {
+      "depends": ["libnotify"],
+      "afterInstall": "build/pacman-postinstall.sh"
+    },
+    "apk": {
+      "depends": ["libnotify"],
+      "maintainer": "Your Name <email@example.com>"
+    }
+  }
+}
+```
+
+## Icon Requirements
+
+Linux builds require icons in multiple sizes. Create a directory structure:
+
+```
+build/icons/
+  16x16.png
+  32x32.png
+  48x48.png
+  64x64.png
+  128x128.png
+  256x256.png
+  512x512.png
+  1024x1024.png
+```
+
+Or use a single 512x512 PNG icon:
+
+```json
+{
+  "build": {
+    "linux": {
+      "icon": "build/icon.png"
+    }
+  }
+}
+```
+
+<Note>
+electron-builder will automatically generate the required icon sizes from a single 512x512 PNG file.
+</Note>
+
+## Building Multiple Targets
+
+```bash
+# Build specific targets
+electron-builder --linux AppImage
+electron-builder --linux deb
+electron-builder --linux snap
+
+# Build multiple targets
+electron-builder --linux AppImage deb rpm
+
+# Build all Linux targets
+electron-builder --linux
+```
+
+<Tabs>
+  <Tab title="CLI">
+    ```bash
+    # Specific targets
+    electron-builder --linux AppImage
+    electron-builder --linux deb
+    electron-builder --linux snap
+    
+    # Multiple targets
+    electron-builder --linux AppImage deb snap
+    
+    # All targets
+    electron-builder --linux
+    ```
+  </Tab>
+  <Tab title="package.json">
+    ```json
+    {
+      "build": {
+        "linux": {
+          "target": [
+            "AppImage",
+            "deb",
+            "snap",
+            "rpm"
+          ]
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Desktop Entry
+
+Customize the desktop entry for all Linux packages:
+
+```json
+{
+  "build": {
+    "linux": {
+      "desktop": {
+        "Name": "My Application",
+        "GenericName": "Application",
+        "Comment": "Application description",
+        "Categories": "Development;Utility;",
+        "MimeType": "x-scheme-handler/myapp;",
+        "StartupWMClass": "my-app",
+        "Terminal": false,
+        "Type": "Application"
+      }
+    }
+  }
+}
+```
+
+Common desktop entry categories:
+- `Development` - Development tools
+- `Utility` - Utility applications
+- `Network` - Network applications
+- `Graphics` - Graphics applications
+- `AudioVideo` - Multimedia applications
+- `Office` - Office applications

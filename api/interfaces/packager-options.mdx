@@ -1,0 +1,303 @@
+---
+title: PackagerOptions Interface
+description: Options for the Packager class
+---
+
+The `PackagerOptions` interface defines options for creating and configuring a Packager instance.
+
+Source: `packages/app-builder-lib/src/packagerApi.ts:9`
+
+## Interface Definition
+
+```typescript
+interface PackagerOptions {
+  targets?: Map<Platform, Map<Arch, Array<string>>>
+  mac?: Array<string>
+  linux?: Array<string>
+  win?: Array<string>
+  projectDir?: string | null
+  platformPackagerFactory?: ((info: Packager, platform: Platform) => PlatformPackager<any>) | null
+  readonly config?: Configuration | string | null
+  readonly effectiveOptionComputed?: (options: any) => Promise<boolean>
+  readonly prepackaged?: string | null
+}
+```
+
+## Properties
+
+### Target Configuration
+
+<ParamField path="targets" type="Map<Platform, Map<Arch, Array<string>>>">
+  Target configuration map. Use `Platform.createTarget()` or `createTargets()` to create this structure.
+  
+  **Example:**
+  ```javascript
+  const targets = Platform.MAC.createTarget(["dmg", "zip"], Arch.x64, Arch.arm64)
+  ```
+</ParamField>
+
+<ParamField path="mac" type="Array<string>">
+  Array of macOS target names. Alternative to using `targets`.
+  
+  **Example:**
+  ```javascript
+  mac: ["dmg", "zip", "pkg"]
+  ```
+  
+  Supported targets:
+  - `dmg` - DMG installer
+  - `zip` - ZIP archive
+  - `pkg` - PKG installer
+  - `mas` - Mac App Store
+  - `mas-dev` - Mac App Store (development)
+</ParamField>
+
+<ParamField path="win" type="Array<string>">
+  Array of Windows target names. Alternative to using `targets`.
+  
+  **Example:**
+  ```javascript
+  win: ["nsis", "portable", "appx"]
+  ```
+  
+  Supported targets:
+  - `nsis` - NSIS installer
+  - `nsis-web` - NSIS web installer
+  - `portable` - Portable executable
+  - `appx` - AppX package (Windows Store)
+  - `msi` - MSI installer
+  - `squirrel` - Squirrel.Windows
+  - `dir` - Unpacked directory
+</ParamField>
+
+<ParamField path="linux" type="Array<string>">
+  Array of Linux target names. Alternative to using `targets`.
+  
+  **Example:**
+  ```javascript
+  linux: ["AppImage", "deb", "rpm", "snap"]
+  ```
+  
+  Supported targets:
+  - `AppImage` - AppImage package
+  - `snap` - Snap package
+  - `deb` - Debian package
+  - `rpm` - RPM package
+  - `pacman` - Pacman package
+  - `flatpak` - Flatpak package
+  - `dir` - Unpacked directory
+</ParamField>
+
+### Project Configuration
+
+<ParamField path="projectDir" type="string | null">
+  The path to the project directory. Defaults to the current working directory.
+  
+  **Example:**
+  ```javascript
+  projectDir: "/path/to/my/project"
+  ```
+</ParamField>
+
+<ParamField path="config" type="Configuration | string | null" readonly>
+  The build configuration. Can be:
+  - Configuration object
+  - Path to configuration file (JSON, YAML, JS, or TS)
+  - `null` to use default configuration from package.json
+  
+  **Example (object):**
+  ```javascript
+  config: {
+    appId: "com.example.app",
+    mac: { target: "dmg" }
+  }
+  ```
+  
+  **Example (path):**
+  ```javascript
+  config: "./custom-build-config.yml"
+  ```
+</ParamField>
+
+### Advanced Options
+
+<ParamField path="platformPackagerFactory" type="((info: Packager, platform: Platform) => PlatformPackager<any>) | null">
+  Factory function to create custom platform packagers. For advanced use cases only.
+  
+  **Example:**
+  ```typescript
+  platformPackagerFactory: (packager, platform) => {
+    if (platform === Platform.MAC) {
+      return new CustomMacPackager(packager)
+    }
+    // Return default packagers for other platforms
+    return null
+  }
+  ```
+</ParamField>
+
+<ParamField path="effectiveOptionComputed" type="(options: any) => Promise<boolean>" readonly>
+  Hook called when effective options are computed. Return `false` to skip the platform. For internal use.
+</ParamField>
+
+<ParamField path="prepackaged" type="string | null" readonly>
+  The path to a prepackaged app directory. When specified, electron-builder will skip the packaging step and only create distributable formats.
+  
+  Useful for:
+  - Packaging already-built apps
+  - Separating build and packaging steps
+  - Custom build pipelines
+  
+  **Example:**
+  ```javascript
+  prepackaged: "./dist/mac/My App.app"
+  ```
+</ParamField>
+
+## Usage Examples
+
+### Basic Usage
+
+```javascript
+const { build, Platform } = require("electron-builder")
+
+const options = {
+  mac: ["dmg"],
+  win: ["nsis"],
+  linux: ["AppImage"],
+  config: {
+    appId: "com.example.app",
+    productName: "My App"
+  }
+}
+
+build(options).then(() => {
+  console.log("Build complete!")
+})
+```
+
+### Using Target Map
+
+```javascript
+const { build, Platform, Arch } = require("electron-builder")
+
+const options = {
+  targets: Platform.MAC.createTarget(["dmg", "zip"], Arch.x64, Arch.arm64),
+  config: {
+    appId: "com.example.app"
+  }
+}
+
+build(options)
+```
+
+### Multiple Platforms
+
+```javascript
+const { build, createTargets, Platform } = require("electron-builder")
+
+const options = {
+  targets: createTargets([Platform.MAC, Platform.WINDOWS, Platform.LINUX]),
+  config: "./electron-builder.yml"
+}
+
+build(options)
+```
+
+### Custom Project Directory
+
+```javascript
+const { build } = require("electron-builder")
+
+const options = {
+  projectDir: "/path/to/project",
+  mac: ["dmg"],
+  config: {
+    directories: {
+      output: "./release"
+    }
+  }
+}
+
+build(options)
+```
+
+### Packaging Prebuilt App
+
+```javascript
+const { build, Platform } = require("electron-builder")
+
+const options = {
+  prepackaged: "./dist/mac/My App.app",
+  targets: Platform.MAC.createTarget("dmg")
+}
+
+build(options)
+```
+
+### TypeScript Example
+
+```typescript
+import { build, Platform, Arch } from "electron-builder"
+import type { PackagerOptions, Configuration } from "electron-builder"
+
+const config: Configuration = {
+  appId: "com.example.app",
+  productName: "My Application",
+  mac: {
+    category: "public.app-category.productivity",
+    target: ["dmg", "zip"]
+  }
+}
+
+const options: PackagerOptions = {
+  targets: Platform.MAC.createTarget(["dmg", "zip"], Arch.universal),
+  projectDir: process.cwd(),
+  config
+}
+
+async function buildApp() {
+  try {
+    const artifacts = await build(options)
+    console.log("Built artifacts:", artifacts)
+  } catch (error) {
+    console.error("Build failed:", error)
+    process.exit(1)
+  }
+}
+
+buildApp()
+```
+
+## Combined with PublishOptions
+
+When calling `build()`, you can combine `PackagerOptions` with `PublishOptions`:
+
+```javascript
+const { build, Platform } = require("electron-builder")
+
+const options = {
+  // PackagerOptions
+  targets: Platform.MAC.createTarget(),
+  config: {
+    appId: "com.example.app",
+    publish: {
+      provider: "github",
+      owner: "my-org",
+      repo: "my-repo"
+    }
+  },
+  
+  // PublishOptions
+  publish: "always" // "onTag", "onTagOrDraft", "always", "never"
+}
+
+build(options)
+```
+
+## See Also
+
+- [Configuration Interface](/api/interfaces/configuration)
+- [Platform-Specific Options](/api/interfaces/platform-options)
+- [Programmatic Usage Guide](/api/programmatic-usage)
+- [electron-builder API](/api/electron-builder)

@@ -1,0 +1,257 @@
+---
+title: macOS Configuration
+description: Configuration options for building macOS applications with electron-builder
+---
+
+The top-level `mac` key contains options for building macOS targets. These options are applicable for any macOS target including DMG, PKG, and Mac App Store builds.
+
+## Basic Example
+
+```json
+{
+  "mac": {
+    "category": "public.app-category.developer-tools",
+    "target": ["dmg", "zip"],
+    "hardenedRuntime": true,
+    "minimumSystemVersion": "10.13.0"
+  }
+}
+```
+
+## Configuration Options
+
+<ParamField path="category" type="string">
+  The application category type, as shown in the Finder via *View → Arrange by Application Category* when viewing the Applications directory.
+  
+  For example, `"category": "public.app-category.developer-tools"` will set the application category to *Developer Tools*.
+  
+  Valid values are listed in [Apple's documentation](https://developer.apple.com/library/ios/documentation/General/Reference/InfoPlistKeyReference/Articles/LaunchServicesKeys.html#//apple_ref/doc/uid/TP40009250-SW8).
+</ParamField>
+
+<ParamField path="target" type="string | string[] | TargetConfiguration | TargetConfiguration[]">
+  The target package type: list of `default`, `dmg`, `mas`, `mas-dev`, `pkg`, `7z`, `zip`, `tar.xz`, `tar.lz`, `tar.gz`, `tar.bz2`, `dir`.
+  
+  <Note>
+    Squirrel.Mac auto update mechanism requires both `dmg` and `zip` to be enabled, even when only `dmg` is used. Disabling `zip` will break auto update in `dmg` packages.
+  </Note>
+  
+  **Default:** `default` (which is `dmg` and `zip` for Squirrel.Mac)
+</ParamField>
+
+<ParamField path="identity" type="string">
+  The name of certificate to use when signing. Consider using environment variables [CSC_LINK or CSC_NAME](/code-signing) instead of specifying this option.
+  
+  MAS installer identity is specified in the [mas configuration](/configuration/mas).
+  
+  - Set to `-` to use an ad-hoc identity for signing
+  - Set to `null` to skip signing entirely
+</ParamField>
+
+<ParamField path="icon" type="string" default="build/icon.icns">
+  The path to application icon.
+  
+  - Accepts `.icns` (legacy) or `.icon` (Icon Composer asset)
+  - If a `.icon` asset is provided, it will be preferred and compiled to an asset catalog
+</ParamField>
+
+### Entitlements
+
+<ParamField path="entitlements" type="string">
+  The path to entitlements file for signing the app. `build/entitlements.mac.plist` will be used if exists (it is a recommended way to set).
+  
+  MAS entitlements is specified in the [mas configuration](/configuration/mas).
+  
+  <Warning>
+    Be aware that your app may crash if the right entitlements are not set like `com.apple.security.cs.allow-jit` for example on arm64 builds with Electron 20+.
+  </Warning>
+  
+  See [this folder in osx-sign's repository](https://github.com/electron/osx-sign/tree/main/entitlements) for examples.
+  
+  See [Signing and Notarizing macOS Builds](https://www.electronjs.org/docs/latest/tutorial/code-signing#signing--notarizing-macos-builds) for more information.
+</ParamField>
+
+<ParamField path="entitlementsInherit" type="string">
+  The path to child entitlements which inherit the security settings for signing frameworks and bundles of a distribution.
+  
+  `build/entitlements.mac.inherit.plist` will be used if exists (it is a recommended way to set).
+  
+  See [this folder in osx-sign's repository](https://github.com/electron/osx-sign/tree/main/entitlements) for examples.
+  
+  <Note>
+    This option only applies when signing with `entitlements` provided.
+  </Note>
+</ParamField>
+
+<ParamField path="entitlementsLoginHelper" type="string">
+  Path to login helper entitlement file.
+  
+  When using App Sandbox, the `com.apple.security.inherit` key that is normally in the inherited entitlements cannot be inherited since the login helper is a standalone executable.
+  
+  **Default:** Value provided for `entitlements`
+  
+  <Note>
+    This option only applies when signing with `entitlements` provided.
+  </Note>
+</ParamField>
+
+<ParamField path="provisioningProfile" type="string">
+  The path to the provisioning profile to use when signing, absolute or relative to the app root.
+</ParamField>
+
+### Bundle Configuration
+
+<ParamField path="bundleVersion" type="string">
+  The `CFBundleVersion`. Do not use it unless [you need to](https://github.com/electron-userland/electron-builder/issues/565#issuecomment-230678643).
+</ParamField>
+
+<ParamField path="bundleShortVersion" type="string">
+  The `CFBundleShortVersionString`. Do not use it unless you need to.
+</ParamField>
+
+<ParamField path="darkModeSupport" type="boolean" default="false">
+  Whether a dark mode is supported. If your app does have a dark mode, you can make your app follow the system-wide dark mode setting.
+</ParamField>
+
+<ParamField path="helperBundleId" type="string" default="${appBundleIdentifier}.helper">
+  The bundle identifier to use in the application helper's plist.
+</ParamField>
+
+<ParamField path="helperRendererBundleId" type="string" default="${appBundleIdentifier}.helper.Renderer">
+  The bundle identifier to use in the Renderer helper's plist.
+</ParamField>
+
+<ParamField path="helperPluginBundleId" type="string" default="${appBundleIdentifier}.helper.Plugin">
+  The bundle identifier to use in the Plugin helper's plist.
+</ParamField>
+
+<ParamField path="helperGPUBundleId" type="string" default="${appBundleIdentifier}.helper.GPU">
+  The bundle identifier to use in the GPU helper's plist.
+</ParamField>
+
+<ParamField path="helperEHBundleId" type="string" default="${appBundleIdentifier}.helper.EH">
+  The bundle identifier to use in the EH helper's plist.
+</ParamField>
+
+<ParamField path="helperNPBundleId" type="string" default="${appBundleIdentifier}.helper.NP">
+  The bundle identifier to use in the NP helper's plist.
+</ParamField>
+
+<ParamField path="extendInfo" type="any">
+  The extra entries for `Info.plist`.
+</ParamField>
+
+<ParamField path="minimumSystemVersion" type="string">
+  The minimum version of macOS required for the app to run. Corresponds to `LSMinimumSystemVersion`.
+  
+  **Example:** `"10.13.0"`
+</ParamField>
+
+### Signing Options
+
+<ParamField path="type" type="'distribution' | 'development'" default="distribution">
+  Whether to sign app for development or for distribution.
+</ParamField>
+
+<ParamField path="binaries" type="string[]">
+  Paths of any extra binaries that need to be signed.
+</ParamField>
+
+<ParamField path="requirements" type="string">
+  Path of [requirements file](https://developer.apple.com/library/mac/documentation/Security/Conceptual/CodeSigningGuide/RequirementLang/RequirementLang.html) used in signing.
+  
+  <Note>
+    Not applicable for MAS.
+  </Note>
+</ParamField>
+
+<ParamField path="hardenedRuntime" type="boolean" default="true">
+  Whether your app has to be signed with hardened runtime.
+</ParamField>
+
+<ParamField path="gatekeeperAssess" type="boolean" default="false">
+  Whether to let `@electron/osx-sign` validate the signing or not.
+</ParamField>
+
+<ParamField path="strictVerify" type="boolean" default="true">
+  Whether to let `@electron/osx-sign` verify the contents or not.
+</ParamField>
+
+<ParamField path="preAutoEntitlements" type="boolean" default="true">
+  Whether to enable entitlements automation from `@electron/osx-sign`.
+</ParamField>
+
+<ParamField path="signIgnore" type="string | string[]">
+  Regex or an array of regex's that signal skipping signing a file.
+</ParamField>
+
+<ParamField path="sign" type="CustomMacSign | string">
+  The custom function (or path to file or module id) to sign an app bundle.
+</ParamField>
+
+<ParamField path="timestamp" type="string">
+  Specify the URL of the timestamp authority server.
+</ParamField>
+
+<ParamField path="additionalArguments" type="string[]">
+  Array of strings specifying additional arguments to pass to the `codesign` command used to sign a specific file.
+  
+  Some subresources that you may include in your Electron app may need to be signed with `--deep`, this is not typically safe to apply to the entire Electron app and therefore should be applied to just your file.
+  
+  **Example:** `["--deep"]`
+</ParamField>
+
+### Notarization
+
+<ParamField path="notarize" type="boolean">
+  Whether to disable electron-builder's [@electron/notarize](https://github.com/electron/notarize) integration.
+  
+  <Note>
+    In order to activate the notarization step You MUST specify one of the following via environment variables:
+    
+    1. `APPLE_API_KEY`, `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`
+    2. `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID`
+    3. `APPLE_KEYCHAIN` and `APPLE_KEYCHAIN_PROFILE`
+    
+    For security reasons it is recommended to use the first option (see [this issue](https://github.com/electron-userland/electron-builder/issues/7859))
+  </Note>
+</ParamField>
+
+### Universal Binary Options
+
+<ParamField path="mergeASARs" type="boolean" default="true">
+  Whether to merge ASAR files for different architectures or not.
+  
+  <Note>
+    This option has no effect unless building for "universal" arch.
+  </Note>
+</ParamField>
+
+<ParamField path="singleArchFiles" type="string">
+  Minimatch pattern of paths that are allowed to be present in one of the ASAR files, but not in the other.
+  
+  <Note>
+    This option has no effect unless building for "universal" arch and applies only if `mergeASARs` is `true`.
+  </Note>
+</ParamField>
+
+<ParamField path="x64ArchFiles" type="string">
+  Minimatch pattern of paths that are allowed to be x64 binaries in both ASAR files.
+  
+  <Note>
+    This option has no effect unless building for "universal" arch and applies only if `mergeASARs` is `true`.
+  </Note>
+</ParamField>
+
+### Archive Options
+
+<ParamField path="extraDistFiles" type="string | string[]">
+  Extra files to put in archive.
+  
+  <Note>
+    Not applicable for `tar.*`.
+  </Note>
+</ParamField>
+
+## Inherited Options
+
+macOS configuration inherits all [common configuration](/configuration/configuration) options.

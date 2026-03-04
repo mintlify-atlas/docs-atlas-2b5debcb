@@ -1,0 +1,219 @@
+---
+title: DMG Configuration
+description: Configuration options for creating Apple Disk Image (DMG) installers
+---
+
+The top-level `dmg` key contains options for building [DMG](https://en.wikipedia.org/wiki/Apple_Disk_Image) installers for macOS.
+
+## Basic Example
+
+```json
+{
+  "dmg": {
+    "title": "${productName} ${version}",
+    "icon": "build/icon.icns",
+    "background": "build/background.png",
+    "contents": [
+      {
+        "x": 130,
+        "y": 220
+      },
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      }
+    ]
+  }
+}
+```
+
+## DMG License
+
+To add a license to DMG, create file `license_LANG_CODE.txt` in the build resources. Multiple license files in different languages are supported — use lang postfix (e.g. `_de`, `_ru`).
+
+For example, create files `license_de.txt` and `license_en.txt` in the build resources. If OS language is german, `license_de.txt` will be displayed.
+
+See map of [language code to name](https://github.com/meikidd/iso-639-1/blob/master/src/data.js).
+
+### Custom License Buttons
+
+You can also change the default button labels of the DMG by passing a json file named `licenseButtons_LANG_CODE.json`. The german file would be named: `licenseButtons_de.json`.
+
+The file should have the following format:
+
+```json
+{
+  "lang": "English",
+  "agree": "Agree",
+  "disagree": "Disagree",
+  "print": "Print",
+  "save": "Save",
+  "description": "Here is my own description"
+}
+```
+
+## Configuration Options
+
+### Appearance
+
+<ParamField path="background" type="string">
+  The path to background image (default: `build/background.tiff` or `build/background.png` if exists).
+  
+  The resolution of this file determines the resolution of the installer window. If background is not specified, use `window.size`. Default locations expected background size to be 540x380.
+  
+  See [DMG with Retina background support](http://stackoverflow.com/a/11204769/1910191).
+</ParamField>
+
+<ParamField path="backgroundColor" type="string">
+  The background color (accepts css colors).
+  
+  **Default:** `#ffffff` (white) if no background image
+</ParamField>
+
+<ParamField path="icon" type="string">
+  The path to DMG icon (volume icon), which will be shown when mounted, relative to the [build resources](/configuration/contents#extraresources) or to the project directory.
+  
+  **Default:** Application icon (`build/icon.icns`)
+</ParamField>
+
+<ParamField path="badgeIcon" type="string">
+  The path to DMG icon (badge icon), which will be shown when mounted, relative to the [build resources](/configuration/contents#extraresources) or to the project directory.
+</ParamField>
+
+<ParamField path="iconSize" type="number" default="80">
+  The size of all the icons inside the DMG.
+</ParamField>
+
+<ParamField path="iconTextSize" type="number" default="12">
+  The size of all the icon texts inside the DMG.
+</ParamField>
+
+<ParamField path="title" type="string" default="${productName} ${version}">
+  The title of the produced DMG, which will be shown when mounted (volume name).
+  
+  Macro `${productName}`, `${version}` and `${name}` are supported.
+</ParamField>
+
+### Window Configuration
+
+<ParamField path="window" type="object">
+  The DMG window position and size. With y co-ordinates running from bottom to top.
+  
+  The Finder makes sure that the window will be on the user's display, so if you want your window at the top left of the display you could use `"x": 0, "y": 100000` as the x, y co-ordinates.
+  
+  <Note>
+    It is not possible to position the window relative to the top left or relative to the center of the user's screen.
+  </Note>
+  
+  **Properties:**
+  
+  <ParamField path="window.x" type="number" default="400">
+    The X position relative to left of the screen.
+  </ParamField>
+  
+  <ParamField path="window.y" type="number" default="100">
+    The Y position relative to bottom of the screen.
+  </ParamField>
+  
+  <ParamField path="window.width" type="number">
+    The width. Defaults to background image width or 540.
+  </ParamField>
+  
+  <ParamField path="window.height" type="number">
+    The height. Defaults to background image height or 380.
+  </ParamField>
+</ParamField>
+
+### Content Layout
+
+<ParamField path="contents" type="DmgContent[]">
+  The content — to customize icon locations. The x and y coordinates refer to the position of the **center** of the icon (at 1x scale), and do not take the label into account.
+  
+  **Example:**
+  
+  ```json
+  {
+    "contents": [
+      {
+        "x": 130,
+        "y": 220
+      },
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      }
+    ]
+  }
+  ```
+  
+  **Content Properties:**
+  
+  <ParamField path="contents[].x" type="number" required>
+    The device-independent pixel offset from the left of the window to the **center** of the icon.
+  </ParamField>
+  
+  <ParamField path="contents[].y" type="number" required>
+    The device-independent pixel offset from the top of the window to the **center** of the icon.
+  </ParamField>
+  
+  <ParamField path="contents[].type" type="'link' | 'file' | 'dir'">
+    The type of content.
+  </ParamField>
+  
+  <ParamField path="contents[].name" type="string">
+    The name of the file within the DMG. Defaults to basename of `path`.
+  </ParamField>
+  
+  <ParamField path="contents[].path" type="string">
+    The path of the file within the DMG.
+  </ParamField>
+</ParamField>
+
+### Format and Size
+
+<ParamField path="format" type="'UDRW' | 'UDRO' | 'UDCO' | 'UDZO' | 'UDBZ' | 'ULFO'" default="UDZO">
+  The disk image format.
+  
+  - `ULFO`: lzfse-compressed image (OS X 10.11+ only)
+  - `UDZO`: zlib-compressed image (default)
+  - `UDBZ`: bzip2-compressed image
+  - `UDCO`: ADC-compressed image
+  - `UDRW`: read/write image
+  - `UDRO`: read-only image
+</ParamField>
+
+<ParamField path="size" type="string">
+  The initial size of the DMG filesystem. Accepts the same syntax as the `-size` argument to `hdiutil`, e.g. `"150m"`, `"4g"`.
+  
+  If not specified, the size is calculated automatically.
+  
+  <Warning>
+    Set this explicitly for large apps or apps with sparse files to avoid "No space left on device" errors.
+  </Warning>
+</ParamField>
+
+<ParamField path="shrink" type="boolean" default="true">
+  Whether to shrink the DMG filesystem to the minimum size after copying files.
+  
+  Set to `false` to preserve the explicit `size` you specified.
+</ParamField>
+
+### Advanced Options
+
+<ParamField path="internetEnabled" type="boolean" default="false">
+  Whether to create internet-enabled disk image.
+  
+  When it is downloaded using a browser it will automatically decompress the image, put the application on the desktop, unmount and remove the disk image file.
+</ParamField>
+
+<ParamField path="sign" type="boolean" default="false">
+  Whether to sign the DMG or not.
+  
+  <Warning>
+    Signing is not required and will lead to unwanted errors in combination with notarization requirements.
+  </Warning>
+</ParamField>

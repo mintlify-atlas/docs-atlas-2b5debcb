@@ -1,0 +1,684 @@
+---
+title: Publishing
+description: Configuration options for publishing and auto-update for all providers
+---
+
+The `publish` key contains a set of options instructing electron-builder on how it should publish artifacts and build update info files for [auto update](/auto-update).
+
+## Configuration Format
+
+`String | Object | Array<Object | String>` where `Object` can be any of the provider configurations below.
+
+Order is important - the first item will be used as a default auto-update server. Can be specified in the [top-level configuration](/configuration) or any platform- ([mac](/configuration/mac), [linux](/configuration/linux), [win](/configuration/win)) or target- (e.g. [nsis](/configuration/nsis)) specific configuration.
+
+<Note>
+When using a generic server, you have to upload the built application and metadata files yourself.
+</Note>
+
+## Default Behavior
+
+- If `GH_TOKEN` or `GITHUB_TOKEN` is defined - defaults to `[{provider: "github"}]`
+- If `KEYGEN_TOKEN` is defined and `GH_TOKEN` or `GITHUB_TOKEN` is not - defaults to `[{provider: "keygen"}]`
+- If `GITHUB_RELEASE_TOKEN` is defined, it will be used instead of `GH_TOKEN` or `GITHUB_TOKEN` to publish your release
+  - The `GITHUB_TOKEN` will still be used when your app checks for updates
+  - You could make your `GITHUB_TOKEN` "Read-only" when creating a fine-grained personal access token, and "Read and write" for the `GITHUB_RELEASE_TOKEN`
+  - "Contents" fine-grained permission was sufficient (as of Apr 2024)
+
+<Warning>
+**Deprecation Notice: Implicit Publishing**
+
+electron-builder currently auto-detects when to publish based on CI environment conditions:
+- Running via `npm run release` → publishes always
+- Git tag detected in CI → publishes on tag
+- CI environment detected → publishes to draft releases
+
+**This implicit publishing behavior is deprecated and will be disabled in electron-builder v27.**
+
+To prepare for this change, please explicitly specify your publish intent using the `--publish` CLI flag (e.g., `--publish always`, `--publish onTag`) or set the `publish` configuration in your `package.json` or `electron-builder.yml`.
+</Warning>
+
+<Info>
+**Snap Store**: `snap` target by default publishes to snap store (the app store for Linux). To force publishing to another provider, explicitly specify publish configuration for `snap`.
+</Info>
+
+## Multiple Publishers
+
+You can publish to multiple providers. Order is important - the first item will be used as a default auto-update server.
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "win": {
+      "publish": ["github", "bitbucket"]
+    }
+  }
+}
+```
+
+```yaml electron-builder.yml
+win:
+  publish:
+    # An object provider for github with additional options
+    - provider: github
+      protocol: https
+    # A string provider for bitbucket that will use default options
+    - bitbucket
+```
+</CodeGroup>
+
+You can also configure publishing using CLI arguments:
+```bash
+electron-builder -c.snap.publish=github
+```
+
+## How to Publish
+
+### CLI Options
+
+```bash
+electron-builder --publish <option>
+```
+
+| Value          | Description                        |
+| -------------- | ---------------------------------- |
+| `onTag`        | On tag push only                   |
+| `onTagOrDraft` | On tag push or if draft release exists |
+| `always`       | Always publish                     |
+| `never`        | Never publish                      |
+
+### Automatic Rules
+
+Instead of explicitly specifying `--publish`, you can rely on automatic rules:
+
+- **CI server detected** - `onTagOrDraft`
+- **CI server reports tag was pushed** - `onTag` (Release will be drafted if doesn't already exist and artifacts published only if tag was pushed)
+- **npm script named `release`** - `always`
+
+Add to `scripts` in your development `package.json`:
+```json
+{
+  "scripts": {
+    "release": "electron-builder"
+  }
+}
+```
+
+Then run `npm run release` to draft a release and publish artifacts.
+
+## Workflows
+
+### Recommended GitHub Releases Workflow
+
+1. [Draft a new release](https://help.github.com/articles/creating-releases/). Set the "Tag version" to the value of `version` in your application `package.json`, and prefix it with `v`. "Release title" can be anything you want.
+   - For example, if your application `package.json` version is `1.0`, your draft's "Tag version" would be `v1.0`
+2. Push some commits. Every CI build will update the artifacts attached to this draft.
+3. Once you are done, publish the release. GitHub will tag the latest commit for you.
+
+The benefit of this workflow is that it allows you to always have the latest artifacts, and the release can be published once it is ready.
+
+### Continuous Deployment Workflow on Amazon S3
+
+This example workflow is modelled on how releases are handled in maven (it is an example of one of many possible workflows):
+
+1. Setup your CI to publish on each commit. E.g. `"dist": "electron-builder --publish always"` in your `package.json`
+2. Set your version in your application `package.json` to `1.9.0-snapshot` (or `1.9.0-master` or whatever you want your development channel to be named). This will publish a file named `snapshot.yml` and a build named `something-snapshot.exe` (and corresponding for mac) to S3.
+3. When you are ready to deploy, simply change your package version to `1.9.0` and push. This will then produce a `latest.yml` and `something.exe` on S3. Usually you'll git-tag this version as well (just to keep track of it).
+4. Change the version back to a snapshot version right after, i.e. `1.10.0-snapshot`, and commit it.
+
+## GitHub Repository Detection
+
+Detected automatically using:
+
+- [repository](https://docs.npmjs.com/files/package.json#repository) in the application or development `package.json`
+- If not set, from environment variables:
+  - `TRAVIS_REPO_SLUG`
+  - `APPVEYOR_REPO_NAME`
+  - `CIRCLE_PROJECT_USERNAME`/`CIRCLE_PROJECT_REPONAME`
+- If no environment variables, from `.git/config` origin url
+
+## File Macros
+
+In all publish options [File Macros](/file-patterns#file-macros) are supported.
+
+## Base Configuration
+
+All publish providers extend these base configuration options:
+
+<ParamField path="provider" type="string" required>
+  The provider name (github, s3, spaces, generic, etc.)
+</ParamField>
+
+<ParamField path="publishAutoUpdate" type="boolean" default={true}>
+  Whether to publish auto update info files.
+  
+  Auto update relies only on the first provider in the list (you can specify several publishers). Thus, probably, there's no need to upload the metadata files for the other configured providers. But by default will be uploaded.
+</ParamField>
+
+<ParamField path="requestHeaders" type="OutgoingHttpHeaders">
+  Any custom request headers
+</ParamField>
+
+<ParamField path="timeout" type="number" default={120000}>
+  Request timeout in milliseconds. (Default is 2 minutes; 0 is ignored)
+</ParamField>
+
+---
+
+## GitHub
+
+[GitHub](https://help.github.com/articles/about-releases/) options.
+
+GitHub [personal access token](https://help.github.com/articles/creating-an-access-token-for-command-line-use/) is required. You can generate by going to [https://github.com/settings/tokens/new](https://github.com/settings/tokens/new). The access token should have the repo scope/permission.
+
+Define `GH_TOKEN` environment variable.
+
+<ParamField path="provider" type="string" required>
+  Must be `github`
+</ParamField>
+
+<ParamField path="repo" type="string">
+  The repository name. [Detected automatically](#github-repository-detection).
+</ParamField>
+
+<ParamField path="owner" type="string">
+  The owner
+</ParamField>
+
+<ParamField path="vPrefixedTagName" type="boolean" default={true}>
+  <Warning>Deprecated: Please use `tagNamePrefix` instead</Warning>
+  
+  Whether to use `v`-prefixed tag name.
+</ParamField>
+
+<ParamField path="tagNamePrefix" type="string">
+  If defined, sets the prefix of the tag name that comes before the semver number.
+  
+  Examples: `"v"` in `"v1.2.3"` or `"test"` in `"test1.2.3"`
+  
+  Overrides `vPrefixedTagName`
+</ParamField>
+
+<ParamField path="host" type="string" default="github.com">
+  The host (including the port if needed)
+</ParamField>
+
+<ParamField path="protocol" type="'https' | 'http'" default="https">
+  The protocol. GitHub Publisher supports only `https`.
+</ParamField>
+
+<ParamField path="token" type="string">
+  The access token to support auto-update from private github repositories. Never specify it in the configuration files. Only for [setFeedURL](./auto-update.md#appupdatersetfeedurloptions).
+</ParamField>
+
+<ParamField path="private" type="boolean">
+  Whether to use private github auto-update provider if `GH_TOKEN` environment variable is defined. See [Private GitHub Update Repo](/auto-update#private-github-update-repo).
+</ParamField>
+
+<ParamField path="channel" type="string" default="latest">
+  The channel
+</ParamField>
+
+<ParamField path="releaseType" type="'draft' | 'prerelease' | 'release'" default="draft">
+  The type of release. By default `draft` release will be created.
+  
+  Also you can set release type using environment variable. If `EP_DRAFT` is set to `true` - `draft`, if `EP_PRE_RELEASE` is set to `true` - `prerelease`.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "publish": {
+      "provider": "github",
+      "owner": "electron-userland",
+      "repo": "electron-builder"
+    }
+  }
+}
+```
+
+```yaml electron-builder.yml
+publish:
+  provider: github
+  owner: electron-userland
+  repo: electron-builder
+```
+</CodeGroup>
+
+---
+
+## GitLab
+
+[GitLab](https://docs.gitlab.com/ee/user/project/releases/) options.
+
+GitLab [personal access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) is required for private repositories. You can generate one by going to your GitLab profile settings.
+
+Define `GITLAB_TOKEN` environment variable.
+
+<ParamField path="provider" type="string" required>
+  Must be `gitlab`
+</ParamField>
+
+<ParamField path="projectId" type="string | number">
+  The GitLab project ID or path (e.g., "12345678" or "namespace/project")
+</ParamField>
+
+<ParamField path="host" type="string" default="gitlab.com">
+  The GitLab host (including the port if needed)
+</ParamField>
+
+<ParamField path="token" type="string">
+  The access token to support auto-update from private GitLab repositories. Never specify it in the configuration files.
+</ParamField>
+
+<ParamField path="vPrefixedTagName" type="boolean" default={true}>
+  Whether to use `v`-prefixed tag name
+</ParamField>
+
+<ParamField path="channel" type="string" default="latest">
+  The channel
+</ParamField>
+
+<ParamField path="uploadTarget" type="'project_upload' | 'generic_package'" default="project_upload">
+  Upload target method. Can be "project_upload" for GitLab project uploads or "generic_package" for GitLab generic packages.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "publish": {
+      "provider": "gitlab",
+      "projectId": "namespace/project"
+    }
+  }
+}
+```
+
+```yaml electron-builder.yml
+publish:
+  provider: gitlab
+  projectId: namespace/project
+```
+</CodeGroup>
+
+---
+
+## Amazon S3
+
+[Amazon S3](https://aws.amazon.com/s3/) options.
+
+AWS credentials are required, please see [getting your credentials](http://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/getting-your-credentials.html).
+
+To set credentials define `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` [environment variables](http://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/loading-node-credentials-environment.html) directly, or use [~/.aws/credentials](http://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/loading-node-credentials-shared.html) file, or use [~/.aws/config](https://docs.aws.amazon.com/sdkref/latest/guide/file-format.html) file. For the last method to work you will also need to define `AWS_SDK_LOAD_CONFIG=1` environment variable.
+
+<ParamField path="provider" type="string" required>
+  Must be `s3`
+</ParamField>
+
+<ParamField path="bucket" type="string" required>
+  The bucket name
+</ParamField>
+
+<ParamField path="region" type="string">
+  The region. Is determined and set automatically when publishing.
+</ParamField>
+
+<ParamField path="channel" type="string" default="latest">
+  The update channel
+</ParamField>
+
+<ParamField path="path" type="string" default="/">
+  The directory path
+</ParamField>
+
+<ParamField path="acl" type="'private' | 'public-read'" default="public-read">
+  The ACL. Set to `null` to not [add](https://github.com/electron-userland/electron-builder/issues/1822).
+  
+  Please see [required permissions for the S3 provider](https://github.com/electron-userland/electron-builder/issues/1618#issuecomment-314679128).
+</ParamField>
+
+<ParamField path="storageClass" type="'STANDARD' | 'REDUCED_REDUNDANCY' | 'STANDARD_IA'" default="STANDARD">
+  The type of storage to use for the object
+</ParamField>
+
+<ParamField path="encryption" type="'AES256' | 'aws:kms'">
+  Server-side encryption algorithm to use for the object
+</ParamField>
+
+<ParamField path="endpoint" type="string">
+  The endpoint URI to send requests to. The default endpoint is built from the configured region.
+  
+  The endpoint should be a string like `https://{service}.{region}.amazonaws.com`.
+</ParamField>
+
+<ParamField path="accelerate" type="boolean">
+  If set to true, this will enable the s3 accelerated endpoint.
+  
+  These endpoints have a particular format of: `${bucketname}.s3-accelerate.amazonaws.com`
+</ParamField>
+
+<ParamField path="forcePathStyle" type="boolean">
+  When true, force a path-style endpoint to be used where the bucket name is part of the path.
+  
+  [Path-style Access](https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#path-style-access)
+</ParamField>
+
+### Example
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "publish": {
+      "provider": "s3",
+      "bucket": "my-bucket",
+      "region": "us-east-1"
+    }
+  }
+}
+```
+
+```yaml electron-builder.yml
+publish:
+  provider: s3
+  bucket: my-bucket
+  region: us-east-1
+```
+</CodeGroup>
+
+---
+
+## DigitalOcean Spaces
+
+[DigitalOcean Spaces](https://www.digitalocean.com/community/tutorials/an-introduction-to-digitalocean-spaces) options.
+
+Access key is required, define `DO_KEY_ID` and `DO_SECRET_KEY` environment variables.
+
+<ParamField path="provider" type="string" required>
+  Must be `spaces`
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The space name
+</ParamField>
+
+<ParamField path="region" type="string" required>
+  The region (e.g. `nyc3`)
+</ParamField>
+
+<ParamField path="channel" type="string" default="latest">
+  The update channel
+</ParamField>
+
+<ParamField path="path" type="string" default="/">
+  The directory path
+</ParamField>
+
+<ParamField path="acl" type="'private' | 'public-read'" default="public-read">
+  The ACL. Set to `null` to not add.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "publish": {
+      "provider": "spaces",
+      "name": "my-space",
+      "region": "nyc3"
+    }
+  }
+}
+```
+
+```yaml electron-builder.yml
+publish:
+  provider: spaces
+  name: my-space
+  region: nyc3
+```
+</CodeGroup>
+
+---
+
+## Keygen
+
+[Keygen](https://keygen.sh/) options.
+
+Define `KEYGEN_TOKEN` environment variable.
+
+<ParamField path="provider" type="string" required>
+  Must be `keygen`
+</ParamField>
+
+<ParamField path="account" type="string" required>
+  Keygen account's UUID
+</ParamField>
+
+<ParamField path="product" type="string" required>
+  Keygen product's UUID
+</ParamField>
+
+<ParamField path="host" type="string" default="api.keygen.sh">
+  Keygen host for self-hosted instances
+</ParamField>
+
+<ParamField path="channel" type="'stable' | 'rc' | 'beta' | 'alpha' | 'dev'" default="stable">
+  The channel
+</ParamField>
+
+<ParamField path="platform" type="string">
+  The target Platform. Is set programmatically explicitly during publishing.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "publish": {
+      "provider": "keygen",
+      "account": "your-account-uuid",
+      "product": "your-product-uuid"
+    }
+  }
+}
+```
+
+```yaml electron-builder.yml
+publish:
+  provider: keygen
+  account: your-account-uuid
+  product: your-product-uuid
+```
+</CodeGroup>
+
+---
+
+## Bitbucket
+
+[Bitbucket](https://bitbucket.org/) options.
+
+Define `BITBUCKET_TOKEN` environment variable.
+
+For converting an app password to a usable token, you can utilize this:
+
+```typescript
+convertAppPassword(owner: string, appPassword: string) {
+  const base64encodedData = Buffer.from(`${owner}:${appPassword.trim()}`).toString("base64")
+  return `Basic ${base64encodedData}`
+}
+```
+
+<ParamField path="provider" type="string" required>
+  Must be `bitbucket`
+</ParamField>
+
+<ParamField path="owner" type="string" required>
+  Repository owner
+</ParamField>
+
+<ParamField path="slug" type="string" required>
+  Repository slug/name
+</ParamField>
+
+<ParamField path="token" type="string">
+  The [app password](https://bitbucket.org/account/settings/app-passwords) to support auto-update from private bitbucket repositories.
+</ParamField>
+
+<ParamField path="username" type="string">
+  The user name to support auto-update from private bitbucket repositories
+</ParamField>
+
+<ParamField path="channel" type="string" default="latest">
+  The channel
+</ParamField>
+
+### Example
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "publish": {
+      "provider": "bitbucket",
+      "owner": "my-workspace",
+      "slug": "my-repo"
+    }
+  }
+}
+```
+
+```yaml electron-builder.yml
+publish:
+  provider: bitbucket
+  owner: my-workspace
+  slug: my-repo
+```
+</CodeGroup>
+
+---
+
+## Snap Store
+
+[Snap Store](https://snapcraft.io/) options.
+
+To publish directly to Snapcraft, see [Snapcraft authentication options](https://snapcraft.io/docs/snapcraft-authentication) for local or CI/CD authentication options.
+
+<ParamField path="provider" type="string" required>
+  Must be `snapStore`
+</ParamField>
+
+<ParamField path="repo" type="string">
+  Snapcraft repo name
+</ParamField>
+
+<ParamField path="channels" type="string | Array<string>" default={["edge"]}>
+  The list of channels the snap would be released
+</ParamField>
+
+### Example
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "publish": {
+      "provider": "snapStore",
+      "channels": ["stable", "candidate"]
+    }
+  }
+}
+```
+
+```yaml electron-builder.yml
+publish:
+  provider: snapStore
+  channels:
+    - stable
+    - candidate
+```
+</CodeGroup>
+
+---
+
+## Generic Server
+
+Generic (any HTTP(S) server) options. In all publish options [File Macros](/file-patterns#file-macros) are supported.
+
+<Note>
+When using a generic server, you have to upload the built application and metadata files yourself.
+</Note>
+
+<ParamField path="provider" type="string" required>
+  Must be `generic`
+</ParamField>
+
+<ParamField path="url" type="string" required>
+  The base url. e.g. `https://bucket_name.s3.amazonaws.com`
+</ParamField>
+
+<ParamField path="channel" type="string" default="latest">
+  The channel
+</ParamField>
+
+<ParamField path="useMultipleRangeRequest" type="boolean">
+  Whether to use multiple range requests for differential update. Defaults to `true` if `url` doesn't contain `s3.amazonaws.com`.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "publish": {
+      "provider": "generic",
+      "url": "https://example.com/downloads"
+    }
+  }
+}
+```
+
+```yaml electron-builder.yml
+publish:
+  provider: generic
+  url: https://example.com/downloads
+```
+</CodeGroup>
+
+---
+
+## Custom Publisher
+
+[Custom](https://github.com/electron-userland/electron-builder/issues/3261) publish provider can be used if needed.
+
+<ParamField path="provider" type="string" required>
+  Must be `custom`
+</ParamField>
+
+<ParamField path="updateProvider" type="class">
+  The Provider to provide UpdateInfo regarding available updates. Required to use custom providers with electron-updater.
+</ParamField>
+
+### Example
+
+```json
+{
+  "build": {
+    "publish": {
+      "provider": "custom",
+      "updateProvider": "MyCustomProvider"
+    }
+  }
+}
+```

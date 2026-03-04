@@ -1,0 +1,379 @@
+---
+title: electron-publish Module
+description: Publishing infrastructure for electron-builder
+---
+
+The `electron-publish` module provides the publishing infrastructure used by electron-builder to upload artifacts to various hosting providers.
+
+## Installation
+
+```bash
+npm install electron-publish --save-dev
+```
+
+## PublishOptions Interface
+
+Options for controlling when to publish artifacts.
+
+```typescript
+interface PublishOptions {
+  publish?: PublishPolicy | null
+}
+```
+
+<ParamField path="publish" type="PublishPolicy | null">
+  When to publish artifacts.
+  
+  - `"onTag"` - Publish only if building a tagged commit
+  - `"onTagOrDraft"` - Publish on tag or if GitHub release is a draft
+  - `"always"` - Always publish
+  - `"never"` - Never publish
+</ParamField>
+
+## PublishContext Interface
+
+Context provided to publishers.
+
+```typescript
+interface PublishContext {
+  readonly cancellationToken: CancellationToken
+  readonly progress: MultiProgress | null
+}
+```
+
+<ParamField path="cancellationToken" type="CancellationToken">
+  Token for cancelling upload operations.
+</ParamField>
+
+<ParamField path="progress" type="MultiProgress | null">
+  Progress bar manager for displaying upload progress.
+</ParamField>
+
+## UploadTask Interface
+
+Represents a file to be uploaded.
+
+```typescript
+interface UploadTask {
+  file: string
+  fileContent?: Buffer | null
+  arch: Arch | null
+  safeArtifactName?: string | null
+  timeout?: number | null
+}
+```
+
+<ParamField path="file" type="string" required>
+  Path to the file to upload.
+</ParamField>
+
+<ParamField path="fileContent" type="Buffer | null">
+  Optional file content buffer (instead of reading from file path).
+</ParamField>
+
+<ParamField path="arch" type="Arch | null">
+  Architecture of the artifact (or null if not architecture-specific).
+</ParamField>
+
+<ParamField path="safeArtifactName" type="string | null">
+  Safe artifact name for display/logging.
+</ParamField>
+
+<ParamField path="timeout" type="number | null">
+  Upload timeout in milliseconds.
+</ParamField>
+
+## Publisher Classes
+
+Base class and platform-specific publishers for uploading artifacts.
+
+### Publisher (Abstract)
+
+Abstract base class for all publishers.
+
+```typescript
+abstract class Publisher {
+  protected constructor(context: PublishContext)
+  
+  abstract get providerName(): PublishProvider
+  abstract upload(task: UploadTask): Promise<any>
+  abstract toString(): string
+}
+```
+
+Source: `packages/electron-publish/src/publisher.ts:13`
+
+### GitHubPublisher
+
+Publishes to GitHub Releases.
+
+```javascript
+const { GitHubPublisher } = require("electron-publish")
+```
+
+**Configuration:**
+
+```json
+{
+  "provider": "github",
+  "owner": "my-org",
+  "repo": "my-repo",
+  "token": "ghp_xxxxx"
+}
+```
+
+### S3Publisher
+
+Publishes to Amazon S3.
+
+```javascript
+const { S3Publisher } = require("electron-publish")
+```
+
+**Configuration:**
+
+```json
+{
+  "provider": "s3",
+  "bucket": "my-bucket",
+  "region": "us-east-1"
+}
+```
+
+### SpacesPublisher
+
+Publishes to DigitalOcean Spaces.
+
+```javascript
+const { SpacesPublisher } = require("electron-publish")
+```
+
+**Configuration:**
+
+```json
+{
+  "provider": "spaces",
+  "name": "my-space",
+  "region": "nyc3"
+}
+```
+
+### GitlabPublisher
+
+Publishes to GitLab Releases.
+
+```javascript
+const { GitlabPublisher } = require("electron-publish")
+```
+
+**Configuration:**
+
+```json
+{
+  "provider": "gitlab",
+  "owner": "my-group",
+  "repo": "my-project"
+}
+```
+
+### BitbucketPublisher
+
+Publishes to Bitbucket Downloads.
+
+```javascript
+const { BitbucketPublisher } = require("electron-publish")
+```
+
+**Configuration:**
+
+```json
+{
+  "provider": "bitbucket",
+  "owner": "my-workspace",
+  "slug": "my-repo"
+}
+```
+
+### KeygenPublisher
+
+Publishes to Keygen.
+
+```javascript
+const { KeygenPublisher } = require("electron-publish")
+```
+
+**Configuration:**
+
+```json
+{
+  "provider": "keygen",
+  "account": "my-account",
+  "product": "my-product"
+}
+```
+
+### SnapStorePublisher
+
+Publishes to Snap Store.
+
+```javascript
+const { SnapStorePublisher } = require("electron-publish")
+```
+
+**Configuration:**
+
+```json
+{
+  "provider": "snapStore",
+  "channels": ["stable"]
+}
+```
+
+### HttpPublisher
+
+Publishes to a generic HTTP endpoint.
+
+```javascript
+const { HttpPublisher } = require("electron-publish")
+```
+
+**Configuration:**
+
+```json
+{
+  "provider": "generic",
+  "url": "https://my-server.com/releases"
+}
+```
+
+## Utility Functions
+
+### getCiTag()
+
+Gets the Git tag from CI environment variables.
+
+```typescript
+function getCiTag(): string | null
+```
+
+**Returns:** Tag name from CI environment, or `null` if not in a tagged build.
+
+**Supported CI systems:**
+- Travis CI (`TRAVIS_TAG`)
+- AppVeyor (`APPVEYOR_REPO_TAG_NAME`)
+- CircleCI (`CIRCLE_TAG`)
+- GitLab CI (`CI_COMMIT_TAG`)
+- GitHub Actions (`GITHUB_REF_NAME` when `GITHUB_REF_TYPE` is "tag")
+- Bitrise (`BITRISE_GIT_TAG`)
+- Bitbucket (`BITBUCKET_TAG`)
+
+**Example:**
+
+```javascript
+const { getCiTag } = require("electron-publish")
+
+const tag = getCiTag()
+if (tag) {
+  console.log(`Building tagged release: ${tag}`)
+}
+```
+
+## Example: Custom Publisher
+
+```typescript
+import { Publisher, PublishContext, UploadTask } from "electron-publish"
+import { PublishProvider } from "builder-util-runtime"
+
+class CustomPublisher extends Publisher {
+  constructor(context: PublishContext, private config: any) {
+    super(context)
+  }
+  
+  get providerName(): PublishProvider {
+    return "custom" as PublishProvider
+  }
+  
+  async upload(task: UploadTask): Promise<void> {
+    const progressBar = this.createProgressBar(
+      task.safeArtifactName || task.file,
+      (await stat(task.file)).size
+    )
+    
+    // Upload logic here
+    console.log(`Uploading ${task.file}...`)
+    
+    // Update progress
+    if (progressBar) {
+      progressBar.tick(100)
+    }
+  }
+  
+  toString(): string {
+    return "Custom Publisher"
+  }
+}
+```
+
+## Configuration in electron-builder
+
+Publish configuration is specified in your build configuration:
+
+```json
+{
+  "build": {
+    "appId": "com.example.app",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "my-org",
+        "repo": "my-repo"
+      },
+      {
+        "provider": "s3",
+        "bucket": "my-bucket",
+        "region": "us-east-1"
+      }
+    ]
+  }
+}
+```
+
+Or from command line:
+
+```bash
+electron-builder --publish always
+electron-builder --publish onTag
+```
+
+## Environment Variables
+
+Publishers use environment variables for authentication:
+
+- **GitHub:** `GH_TOKEN` or `GITHUB_TOKEN`
+- **GitLab:** `GITLAB_TOKEN`
+- **Bitbucket:** `BITBUCKET_TOKEN`
+- **S3:** `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- **Spaces:** `DO_TOKEN`
+- **Keygen:** `KEYGEN_TOKEN`
+- **Snap Store:** `SNAPCRAFT_STORE_CREDENTIALS`
+
+## Import Examples
+
+### CommonJS
+
+```javascript
+const { GitHubPublisher, getCiTag } = require("electron-publish")
+```
+
+### ES Modules / TypeScript
+
+```typescript
+import { GitHubPublisher, getCiTag, PublishOptions } from "electron-publish"
+import type { UploadTask, PublishContext } from "electron-publish"
+```
+
+## See Also
+
+- [Publishing Documentation](/publish)
+- [Auto Update Documentation](/auto-update)
+- [electron-updater Module](/api/electron-updater)

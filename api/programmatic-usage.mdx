@@ -1,0 +1,262 @@
+---
+title: Programmatic Usage
+description: Using electron-builder programmatically from Node.js
+---
+
+electron-builder can be used programmatically in your Node.js scripts to automate the build process.
+
+## Basic Example
+
+```javascript
+const builder = require("electron-builder")
+const Platform = builder.Platform
+
+builder.build({
+  targets: Platform.MAC.createTarget(),
+  config: {
+    appId: "com.example.app",
+    mac: {
+      target: "dmg"
+    }
+  }
+})
+.then(() => {
+  console.log("Build successful!")
+})
+.catch((error) => {
+  console.error("Build failed:", error)
+})
+```
+
+## Build Function
+
+The main `build()` function accepts options and returns a Promise that resolves to an array of artifact paths.
+
+```typescript
+function build(
+  options: PackagerOptions & PublishOptions,
+  packager?: Packager
+): Promise<Array<string>>
+```
+
+### Parameters
+
+<ParamField path="options" type="PackagerOptions & PublishOptions" required>
+  Build and publish options combined.
+  
+  <Expandable title="properties">
+    <ParamField path="targets" type="Map<Platform, Map<Arch, Array<string>>>">
+      The targets to build for. Created using `Platform.createTarget()`.
+    </ParamField>
+    
+    <ParamField path="config" type="Configuration | string | null">
+      The configuration object or path to config file.
+    </ParamField>
+    
+    <ParamField path="projectDir" type="string | null">
+      The path to project directory. Defaults to current working directory.
+    </ParamField>
+    
+    <ParamField path="mac" type="Array<string>">
+      MacOS targets (e.g., `["dmg", "zip"]`).
+    </ParamField>
+    
+    <ParamField path="win" type="Array<string>">
+      Windows targets (e.g., `["nsis", "portable"]`).
+    </ParamField>
+    
+    <ParamField path="linux" type="Array<string>">
+      Linux targets (e.g., `["AppImage", "deb"]`).
+    </ParamField>
+    
+    <ParamField path="publish" type="PublishPolicy | null">
+      Publishing policy: `"onTag"`, `"onTagOrDraft"`, `"always"`, or `"never"`.
+    </ParamField>
+    
+    <ParamField path="prepackaged" type="string | null">
+      The path to prepackaged app to pack in a distributable format.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="packager" type="Packager">
+  Optional Packager instance. Created automatically if not provided.
+</ParamField>
+
+### Returns
+
+`Promise<Array<string>>` - Resolves to an array of paths to built artifacts.
+
+## Platform Targets
+
+Use the `Platform` class to create targets for specific platforms.
+
+```javascript
+const { Platform, Arch } = require("electron-builder")
+
+// Build for macOS
+Platform.MAC.createTarget()
+
+// Build specific target types
+Platform.MAC.createTarget(["dmg", "zip"])
+
+// Build for specific architectures
+Platform.MAC.createTarget("dmg", Arch.x64, Arch.arm64)
+
+// Build for Windows
+Platform.WINDOWS.createTarget(["nsis", "portable"])
+
+// Build for Linux
+Platform.LINUX.createTarget(["AppImage", "deb", "rpm"])
+```
+
+## Creating Targets
+
+The `createTargets()` helper function simplifies target creation.
+
+```typescript
+function createTargets(
+  platforms: Array<Platform>,
+  type?: string | null,
+  arch?: string | null
+): Map<Platform, Map<Arch, Array<string>>>
+```
+
+### Example
+
+```javascript
+const { createTargets, Platform } = require("electron-builder")
+
+// Build DMG for macOS on all architectures
+const targets = createTargets([Platform.MAC], "dmg", "all")
+
+builder.build({
+  targets,
+  config: { /* ... */ }
+})
+```
+
+## Complete Example
+
+```javascript
+const builder = require("electron-builder")
+const Platform = builder.Platform
+
+const options = {
+  appId: "com.example.myapp",
+  productName: "My Application",
+  copyright: "Copyright © 2024 My Company",
+  
+  compression: "normal",
+  
+  directories: {
+    output: "dist",
+    buildResources: "build"
+  },
+  
+  files: [
+    "out/**/*",
+    "package.json"
+  ],
+  
+  mac: {
+    target: ["dmg", "zip"],
+    category: "public.app-category.developer-tools"
+  },
+  
+  win: {
+    target: ["nsis", "portable"],
+    publisherName: "My Company"
+  },
+  
+  linux: {
+    target: ["AppImage", "deb"],
+    category: "Development"
+  },
+  
+  // Lifecycle hooks
+  afterPack: async (context) => {
+    console.log("After pack:", context.outDir)
+  },
+  
+  afterSign: async (context) => {
+    console.log("After sign:", context.electronPlatformName)
+  },
+  
+  afterAllArtifactBuild: async (buildResult) => {
+    console.log("Artifacts:", buildResult.artifactPaths)
+    return [] // Return additional files to publish
+  }
+}
+
+builder.build({
+  targets: Platform.MAC.createTarget(),
+  config: options
+})
+.then((artifactPaths) => {
+  console.log("Build completed successfully!")
+  console.log("Artifacts:", artifactPaths)
+})
+.catch((error) => {
+  console.error("Build failed:", error)
+  process.exit(1)
+})
+```
+
+## Using with TypeScript
+
+```typescript
+import { build, Platform, Configuration } from "electron-builder"
+
+const config: Configuration = {
+  appId: "com.example.app",
+  productName: "My App",
+  mac: {
+    target: "dmg"
+  }
+}
+
+async function buildApp() {
+  try {
+    const artifactPaths = await build({
+      targets: Platform.MAC.createTarget(),
+      config
+    })
+    
+    console.log("Built artifacts:", artifactPaths)
+  } catch (error) {
+    console.error("Build error:", error)
+    throw error
+  }
+}
+
+buildApp()
+```
+
+## Publishing
+
+To publish artifacts programmatically:
+
+```javascript
+const { build, Platform } = require("electron-builder")
+
+build({
+  targets: Platform.MAC.createTarget(),
+  config: {
+    appId: "com.example.app",
+    publish: {
+      provider: "github",
+      owner: "my-org",
+      repo: "my-repo"
+    }
+  },
+  publish: "always" // or "onTag", "onTagOrDraft", "never"
+})
+```
+
+## See Also
+
+- [electron-builder API](/api/electron-builder)
+- [app-builder-lib API](/api/app-builder-lib)
+- [Configuration Interface](/api/interfaces/configuration)
+- [PackagerOptions Interface](/api/interfaces/packager-options)

@@ -1,0 +1,113 @@
+---
+title: Configuring Electron Fuses
+description: Learn how to configure Electron fuses to enable or disable certain features in your packaged application
+---
+
+<Note>
+Information on this page has been adapted from the official [@electron/fuses](https://github.com/electron/fuses) integration and [Electron tutorial](https://raw.githubusercontent.com/electron/electron/refs/heads/main/docs/tutorial/fuses.md).
+</Note>
+
+## What are Fuses?
+
+For a subset of Electron functionality, it makes sense to disable certain features for an entire application. For example, 99% of apps don't make use of `ELECTRON_RUN_AS_NODE`, and these applications want to ship a binary that is incapable of using that feature.
+
+Fuses are "magic bits" in the Electron binary that can be flipped when packaging your Electron app to enable or disable certain features and restrictions. Because they are flipped at package time before you code sign your app, the operating system becomes responsible for ensuring those bits aren't flipped back via OS-level code signing validation (Gatekeeper / App Locker).
+
+## Configuration
+
+electron-builder leverages the official [`@electron/fuses`](https://npmjs.com/package/@electron/fuses) module to make flipping fuses easy. You can configure fuses using the `electronFuses` configuration property.
+
+### Using electronFuses Configuration
+
+<Note>
+The true/false values below are just examples. Customize your configuration to match your own requirements.
+</Note>
+
+```typescript
+electronFuses: {
+  runAsNode: false,
+  enableCookieEncryption: true,
+  enableNodeOptionsEnvironmentVariable: false,
+  enableNodeCliInspectArguments: false,
+  enableEmbeddedAsarIntegrityValidation: true,
+  onlyLoadAppFromAsar: true,
+  loadBrowserProcessSpecificV8Snapshot: false,
+  grantFileProtocolExtraPrivileges: false
+}
+```
+
+### Using afterPack Hook
+
+You can also configure fuses in the `afterPack` hook for more advanced customization. electron-builder exposes a convenience method in the `PlatformPackager` that accepts an `AfterPackContext` and a `FuseConfig` object.
+
+This method allows you to:
+- Provide custom FuseConfig objects
+- Use `strictlyRequireAllFuses` to monitor your fuses and stay up-to-date as new fuses are released
+- Force override the version of @electron/fuses in electron-builder
+
+```typescript afterPack.ts
+const { FuseConfig, FuseVersion, FuseV1Options } = require("@electron/fuses")
+
+exports.default = function (context: AfterPackContext) {
+  const fuses: FuseConfig = {
+    version: FuseVersion.V1,
+    strictlyRequireAllFuses: true,
+    [FuseV1Options.RunAsNode]: false,
+    // ... all other flags must be specified since `strictlyRequireAllFuses = true`
+  }
+  await context.packager.addElectronFuses(context, fuses)
+}
+```
+
+## Available Fuses
+
+<ParamField path="runAsNode" type="boolean">
+  Disables the `ELECTRON_RUN_AS_NODE` environment variable, which allows running the Electron app as a Node.js script.
+</ParamField>
+
+<ParamField path="enableCookieEncryption" type="boolean">
+  Enables encryption for cookies stored by Electron.
+</ParamField>
+
+<ParamField path="enableNodeOptionsEnvironmentVariable" type="boolean">
+  Controls whether the `NODE_OPTIONS` environment variable is respected.
+</ParamField>
+
+<ParamField path="enableNodeCliInspectArguments" type="boolean">
+  Controls whether Node.js CLI inspect arguments (like `--inspect`) are enabled.
+</ParamField>
+
+<ParamField path="enableEmbeddedAsarIntegrityValidation" type="boolean">
+  Enables validation of the ASAR archive integrity to prevent tampering.
+</ParamField>
+
+<ParamField path="onlyLoadAppFromAsar" type="boolean">
+  Forces the app to load only from the ASAR archive, ignoring unpacked files.
+</ParamField>
+
+<ParamField path="loadBrowserProcessSpecificV8Snapshot" type="boolean">
+  Loads a browser-process-specific V8 snapshot for faster startup.
+</ParamField>
+
+<ParamField path="grantFileProtocolExtraPrivileges" type="boolean">
+  Controls whether the file protocol has extra privileges.
+</ParamField>
+
+## Validating Fuses
+
+You can validate that fuses have been flipped correctly or check the fuse status of any Electron app using the fuses CLI:
+
+```bash
+npx @electron/fuses read --app /Applications/Foo.app
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration Reference" icon="gear" href="/configuration/common">
+    View all configuration options including electronFuses
+  </Card>
+  <Card title="Build Hooks" icon="webhook" href="/configuration/hooks">
+    Learn more about afterPack and other build hooks
+  </Card>
+</CardGroup>

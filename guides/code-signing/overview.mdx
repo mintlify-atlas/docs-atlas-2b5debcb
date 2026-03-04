@@ -1,0 +1,151 @@
+---
+title: Code Signing Overview
+description: Learn about code signing in electron-builder, including certificates, environment variables, and setup for macOS and Windows
+---
+
+Code signing is a critical security feature that ensures users can trust your application. Both macOS and Windows code signing are fully supported in electron-builder. If the configuration values are provided correctly, signing is performed automatically during the build process.
+
+## Why Code Signing Matters
+
+Code signing provides several important benefits:
+
+- **User Trust**: Signed applications show users that the software comes from a verified source
+- **Security**: Prevents tampering and malware injection after distribution
+- **Operating System Requirements**: 
+  - macOS Gatekeeper only allows apps from identified developers
+  - Windows SmartScreen warns users about unsigned applications
+- **Auto-Updates**: Properly signed applications enable seamless auto-update functionality
+
+## Environment Variables
+
+electron-builder uses environment variables for code signing configuration:
+
+| Environment Variable | Description |
+| -------------------- | ----------- |
+| `CSC_LINK` | The HTTPS link (or base64-encoded data, or `file://` link, or local path) to certificate (`*.p12` or `*.pfx` file). Shorthand `~/` is supported (home directory). |
+| `CSC_KEY_PASSWORD` | The password to decrypt the certificate given in `CSC_LINK`. |
+| `CSC_NAME` | **macOS only** - Name of certificate (to retrieve from login.keychain). Useful on a development machine (not on CI) if you have several identities (otherwise don't specify it). |
+| `CSC_IDENTITY_AUTO_DISCOVERY` | `true` or `false`. Defaults to `true` — on a macOS development machine valid and appropriate identity from your keychain will be automatically used. |
+| `CSC_KEYCHAIN` | The keychain name. Used if `CSC_LINK` is not specified. Defaults to system default keychain. |
+| `WIN_CSC_LINK` | Windows certificate link when building on macOS (if different from `CSC_LINK`). |
+| `WIN_CSC_KEY_PASSWORD` | Windows certificate password when building on macOS (if different from `CSC_KEY_PASSWORD`). |
+
+<Note>
+If you are wrapping your app into an installer (`.pkg`), you need to have `INSTALLER ID` identity in your keychain or provide `CSC_INSTALLER_LINK` and `CSC_INSTALLER_KEY_PASSWORD`.
+</Note>
+
+<Note>
+If you are building Windows apps on macOS and need to set a different certificate and password than the ones in `CSC_*` env vars, use `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD`.
+</Note>
+
+## Setting Up Code Signing on CI/CD
+
+To sign your app on build servers like Travis CI, AppVeyor, GitHub Actions, or CircleCI:
+
+<Steps>
+  <Step title="Export your certificate">
+    [Export your certificate](https://developer.apple.com/library/ios/documentation/IDEs/Conceptual/AppDistributionGuide/MaintainingCertificates/MaintainingCertificates.html#//apple_ref/doc/uid/TP40012582-CH31-SW7) to a `.p12` file.
+    
+    Consider avoiding special characters in the password, as values are not escaped when your builds are executed.
+  </Step>
+
+  <Step title="Encode the certificate">
+    Encode the file to base64:
+    
+    ```bash
+    # macOS
+    base64 -i yourFile.p12 -o envValue.txt
+    
+    # Linux
+    base64 yourFile.p12 > envValue.txt
+    ```
+    
+    Alternatively, upload your `*.p12` file (e.g., on Google Drive) and use a [direct link generator](http://www.syncwithtech.org/p/direct-download-link-generator.html) to get the correct download link.
+  </Step>
+
+  <Step title="Configure environment variables">
+    Set `CSC_LINK` and `CSC_KEY_PASSWORD` environment variables in your CI project settings:
+    
+    - [Travis CI Documentation](https://docs.travis-ci.com/user/environment-variables/#Defining-Variables-in-Repository-Settings)
+    - [AppVeyor Documentation](https://www.appveyor.com/docs/build-configuration#environment-variables)
+    
+    <Warning>
+    Set these variables in your CI Project Settings, **not** in `.travis.yml` or `appveyor.yml` files.
+    </Warning>
+    
+    If you use a link to a file (not base64 encoded data), escape special characters using:
+    ```bash
+    printf "%q\n" "<url>"
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+In AppVeyor, click the lock icon to "Toggle variable encryption" for sensitive values.
+</Warning>
+
+<Warning>
+Windows cannot handle environment variable values longer than 8192 characters. If the base64 representation of your certificate exceeds this limit, re-export the certificate **without** including all certificates in the certification path (the Certificate Manager export wizard enables this option by default, but they are not necessary).
+</Warning>
+
+## Certificate Types
+
+### macOS Certificates
+
+macOS uses Apple-issued certificates from the Apple Developer Program:
+
+- **Developer ID Application**: Sign apps for distribution outside the Mac App Store
+- **Developer ID Installer**: Sign installer packages for distribution outside the Mac App Store
+- **3rd Party Mac Developer Application**: Sign apps for Mac App Store submission
+- **3rd Party Mac Developer Installer**: Sign installer packages for Mac App Store
+- **Apple Distribution**: Sign apps for Mac App Store (newer certificate type)
+- **Mac Developer / Apple Development**: Sign development builds for testing
+
+<Note>
+Gatekeeper only recognizes [Apple digital certificates](http://stackoverflow.com/questions/11833481/non-apple-issued-code-signing-certificate-can-it-work-with-mac-os-10-8-gatekeep). You must have an Apple Developer account.
+</Note>
+
+### Windows Certificates
+
+Windows supports two types of certificates:
+
+- **Standard Code Signing Certificate**: Regular certificate that works with auto-update. Shows a warning during installation until your app builds trust with users.
+- **EV (Extended Validation) Code Signing Certificate**: Higher trust level, works immediately without warnings. However, it's bound to a physical USB dongle and cannot be exported for CI builds.
+
+## Where to Buy Certificates
+
+### Windows
+
+See Microsoft's guide: [Get a code signing certificate](https://msdn.microsoft.com/windows/hardware/drivers/dashboard/get-a-code-signing-certificate)
+
+Platform: "Microsoft Authenticode"
+
+Popular certificate authorities:
+- DigiCert
+- Sectigo
+- SSL.com
+- GlobalSign
+
+### macOS
+
+macOS certificates are obtained through the [Apple Developer Program](https://developer.apple.com/programs/) ($99/year).
+
+## Alternative Code Signing Methods
+
+While electron-builder provides automated code signing through configuration, some developers prefer GUI tools:
+
+- [SSL Manager](https://www.ssl.com/ssl-manager) - SSL.com's signing tool
+- [DigiCert Utility for Windows](https://www.digicert.com/support/tools/certificate-utility-for-windows) - DigiCert's certificate management tool
+
+These tools can be useful for manual signing workflows or certificate management.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Windows Code Signing" icon="windows" href="/guides/code-signing/windows">
+    Learn how to sign Windows applications
+  </Card>
+  <Card title="macOS Code Signing" icon="apple" href="/guides/code-signing/macos">
+    Learn how to sign and notarize macOS applications
+  </Card>
+</CardGroup>

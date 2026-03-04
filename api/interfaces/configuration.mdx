@@ -1,0 +1,376 @@
+---
+title: Configuration Interface
+description: Main electron-builder configuration interface
+---
+
+The `Configuration` interface defines all available options for configuring electron-builder.
+
+Source: `packages/app-builder-lib/src/configuration.ts:202`
+
+## Interface Definition
+
+```typescript
+interface Configuration extends CommonConfiguration, PlatformSpecificBuildOptions, Hooks {
+  // Configuration properties
+}
+```
+
+The Configuration interface extends:
+- `CommonConfiguration` - Common configuration options
+- `PlatformSpecificBuildOptions` - File patterns and build options
+- `Hooks` - Lifecycle hooks
+
+## Application Metadata
+
+<ParamField path="appId" type="string | null" default="com.electron.${name}">
+  The application ID. Used as `CFBundleIdentifier` for macOS and `Application User Model ID` for Windows (NSIS only). It is strongly recommended that an explicit ID is set.
+  
+  **Example:** `"com.mycompany.myapp"`
+</ParamField>
+
+<ParamField path="productName" type="string | null">
+  The product name for your executable. Allows spaces and special characters not allowed in the `name` property. If not specified, uses `productName` from top-level `package.json`, or falls back to `name`.
+  
+  **Example:** `"My Application"`
+</ParamField>
+
+<ParamField path="copyright" type="string | null" default="Copyright © year ${author}">
+  The human-readable copyright line for the app.
+  
+  **Example:** `"Copyright © 2024 My Company"`
+</ParamField>
+
+## Framework Configuration
+
+<ParamField path="electronVersion" type="string | null">
+  The version of Electron you are packaging for. Defaults to version of `electron`, `electron-prebuilt`, or `electron-prebuilt-compile` dependency.
+  
+  **Example:** `"28.0.0"`
+</ParamField>
+
+<ParamField path="electronDownload" type="ElectronDownloadOptions">
+  Options for downloading Electron.
+  
+  <Expandable title="properties">
+    <ParamField path="mirror" type="string">
+      CDN mirror URL.
+    </ParamField>
+    <ParamField path="customDir" type="string">
+      Custom directory path on mirror.
+    </ParamField>
+    <ParamField path="customFilename" type="string">
+      Custom filename.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="electronBranding" type="ElectronBrandingOptions">
+  The branding used by Electron's distributables. Needed if a fork has modified Electron's BRANDING.json file.
+  
+  <Expandable title="properties">
+    <ParamField path="projectName" type="string">
+      Project name.
+    </ParamField>
+    <ParamField path="productName" type="string">
+      Product name.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="framework" type="string | null" default="electron">
+  The framework name. One of `electron`, `proton`, or `libui`.
+</ParamField>
+
+<ParamField path="electronCompile" type="boolean">
+  Whether to use electron-compile. Defaults to `true` if `electron-compile` is in dependencies, `false` if in devDependencies or not specified.
+</ParamField>
+
+## Directories
+
+<ParamField path="directories" type="MetadataDirectories | null">
+  Directory configuration.
+  
+  <Expandable title="properties">
+    <ParamField path="buildResources" type="string | null" default="build">
+      Path to build resources directory. These files are not packed into the app.
+    </ParamField>
+    <ParamField path="output" type="string | null" default="dist">
+      Output directory for built artifacts. Supports file macros.
+    </ParamField>
+    <ParamField path="app" type="string | null">
+      Application directory containing package.json. Defaults to `app`, `www`, or working directory.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Build Configuration
+
+<ParamField path="extends" type="Array<string> | string | null">
+  Name of a built-in preset (currently only `react-cra`) or paths to config files to extend. Automatically set to `react-cra` if `react-scripts` is in dependencies. Set to `null` to disable.
+</ParamField>
+
+<ParamField path="buildDependenciesFromSource" type="boolean" default="false">
+  Whether to build native dependencies from source.
+</ParamField>
+
+<ParamField path="nodeGypRebuild" type="boolean" default="false">
+  Whether to execute `node-gyp rebuild` before packaging.
+</ParamField>
+
+<ParamField path="npmRebuild" type="boolean" default="true">
+  Whether to rebuild native dependencies before packaging.
+</ParamField>
+
+<ParamField path="nativeRebuilder" type="'legacy' | 'sequential' | 'parallel' | null" default="sequential">
+  Use `legacy` app-builder binary for installing native dependencies, or `@electron/rebuild` in `sequential` or `parallel` compilation modes.
+</ParamField>
+
+<ParamField path="npmArgs" type="Array<string> | string | null">
+  Additional command line arguments to use when installing app native deps.
+</ParamField>
+
+## Version Configuration
+
+<ParamField path="buildNumber" type="string | null">
+  The build number. Maps to `--iteration` flag for FPM on Linux. Falls back to `BUILD_NUMBER`, `TRAVIS_BUILD_NUMBER`, `APPVEYOR_BUILD_NUMBER`, `CIRCLE_BUILD_NUM`, or `BUILD_BUILDNUMBER` environment variables.
+</ParamField>
+
+<ParamField path="buildVersion" type="string | null">
+  The build version. Maps to `CFBundleVersion` on macOS and `FileVersion` on Windows. Defaults to `version`. If not defined but `buildNumber` is, uses `version.buildNumber`.
+</ParamField>
+
+## Platform-Specific Options
+
+### macOS
+
+<ParamField path="mac" type="MacConfiguration | null">
+  Options for building macOS targets.
+</ParamField>
+
+<ParamField path="mas" type="MasConfiguration | null">
+  Mac Application Store (MAS) options.
+</ParamField>
+
+<ParamField path="masDev" type="MasConfiguration | null">
+  MAS development options for `mas-dev` target.
+</ParamField>
+
+<ParamField path="dmg" type="DmgOptions | null">
+  macOS DMG target options.
+</ParamField>
+
+<ParamField path="pkg" type="PkgOptions | null">
+  macOS PKG target options.
+</ParamField>
+
+### Windows
+
+<ParamField path="win" type="WindowsConfiguration | null">
+  Options for building Windows targets.
+</ParamField>
+
+<ParamField path="nsis" type="NsisOptions | null">
+  NSIS installer options.
+</ParamField>
+
+<ParamField path="nsisWeb" type="NsisWebOptions | null">
+  NSIS web installer options.
+</ParamField>
+
+<ParamField path="portable" type="PortableOptions | null">
+  Portable app options.
+</ParamField>
+
+<ParamField path="appx" type="AppXOptions | null">
+  AppX package options.
+</ParamField>
+
+<ParamField path="msi" type="MsiOptions | null">
+  MSI installer options (private).
+</ParamField>
+
+<ParamField path="squirrelWindows" type="SquirrelWindowsOptions | null">
+  Squirrel.Windows installer options.
+</ParamField>
+
+### Linux
+
+<ParamField path="linux" type="LinuxConfiguration | null">
+  Options for building Linux targets.
+</ParamField>
+
+<ParamField path="deb" type="DebOptions | null">
+  Debian package options.
+</ParamField>
+
+<ParamField path="snap" type="SnapOptions | null">
+  Snap package options.
+</ParamField>
+
+<ParamField path="appImage" type="AppImageOptions | null">
+  AppImage options.
+</ParamField>
+
+<ParamField path="flatpak" type="FlatpakOptions | null">
+  Flatpak options.
+</ParamField>
+
+<ParamField path="pacman" type="LinuxTargetSpecificOptions | null">
+  Pacman package options.
+</ParamField>
+
+<ParamField path="rpm" type="LinuxTargetSpecificOptions | null">
+  RPM package options.
+</ParamField>
+
+## Code Signing
+
+<ParamField path="forceCodeSigning" type="boolean" default="false">
+  Whether to fail if the app is not code signed.
+</ParamField>
+
+<ParamField path="downloadAlternateFFmpeg" type="boolean">
+  Whether to download the alternate FFmpeg library from Electron's release assets and replace the default FFmpeg library prior to signing.
+</ParamField>
+
+## Advanced Options
+
+<ParamField path="extraMetadata" type="any">
+  Inject properties to `package.json`. Can override any package.json fields.
+  
+  **Example:**
+  ```json
+  {
+    "extraMetadata": {
+      "version": "1.0.0-beta.1"
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="includePdb" type="boolean" default="false">
+  Whether to include PDB files (Windows debug symbols).
+</ParamField>
+
+<ParamField path="removePackageScripts" type="boolean" default="true">
+  Whether to remove `scripts` field from package.json files.
+</ParamField>
+
+<ParamField path="removePackageKeywords" type="boolean" default="true">
+  Whether to remove `keywords` field from package.json files.
+</ParamField>
+
+<ParamField path="disableSanityCheckAsar" type="boolean" default="false">
+  Whether to disable sanity check of asar package. Useful for custom Electron forks with encrypted integrity validation.
+</ParamField>
+
+## Electron Fuses
+
+<ParamField path="electronFuses" type="FuseOptionsV1 | null">
+  Options to pass to `@electron/fuses`. See [Electron Fuses](https://github.com/electron/fuses).
+  
+  <Expandable title="properties">
+    <ParamField path="runAsNode" type="boolean">
+      Toggle `ELECTRON_RUN_AS_NODE` environment variable support.
+    </ParamField>
+    <ParamField path="enableCookieEncryption" type="boolean">
+      Enable cookie store encryption.
+    </ParamField>
+    <ParamField path="enableNodeOptionsEnvironmentVariable" type="boolean">
+      Enable `NODE_OPTIONS` and `NODE_EXTRA_CA_CERTS` environment variables.
+    </ParamField>
+    <ParamField path="enableNodeCliInspectArguments" type="boolean">
+      Enable Node.js inspector CLI arguments.
+    </ParamField>
+    <ParamField path="enableEmbeddedAsarIntegrityValidation" type="boolean">
+      Enable ASAR integrity validation.
+    </ParamField>
+    <ParamField path="onlyLoadAppFromAsar" type="boolean">
+      Only load app from app.asar.
+    </ParamField>
+    <ParamField path="loadBrowserProcessSpecificV8Snapshot" type="boolean">
+      Use browser-specific V8 snapshot.
+    </ParamField>
+    <ParamField path="grantFileProtocolExtraPrivileges" type="boolean">
+      Grant extra privileges to file:// protocol.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Toolsets
+
+<ParamField path="toolsets" type="ToolsetConfig | null">
+  Configuration of toolsets utilized by electron-builder.
+  
+  <Expandable title="properties">
+    <ParamField path="winCodeSign" type="'0.0.0' | '1.0.0' | '1.1.0' | null" default="0.0.0">
+      `win-codesign` version for signing Windows artifacts.
+    </ParamField>
+    <ParamField path="appimage" type="'0.0.0' | '1.0.2' | null" default="0.0.0">
+      AppImage bundle version for packaging and runtime.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Concurrency
+
+<ParamField path="concurrency" type="Concurrency | null">
+  Experimental configuration for concurrent builds.
+  
+  <Expandable title="properties">
+    <ParamField path="jobs" type="number" default="1">
+      Maximum number of concurrent jobs to run.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Example Configuration
+
+```json
+{
+  "appId": "com.example.myapp",
+  "productName": "My Application",
+  "copyright": "Copyright © 2024 My Company",
+  
+  "directories": {
+    "output": "dist",
+    "buildResources": "build"
+  },
+  
+  "files": [
+    "dist/**/*",
+    "package.json"
+  ],
+  
+  "mac": {
+    "category": "public.app-category.developer-tools",
+    "target": ["dmg", "zip"]
+  },
+  
+  "win": {
+    "target": ["nsis", "portable"]
+  },
+  
+  "linux": {
+    "target": ["AppImage", "deb"],
+    "category": "Development"
+  },
+  
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  },
+  
+  "publish": {
+    "provider": "github",
+    "owner": "my-org",
+    "repo": "my-repo"
+  }
+}
+```
+
+## See Also
+
+- [PackagerOptions Interface](/api/interfaces/packager-options)
+- [Platform-Specific Options](/api/interfaces/platform-options)
+- [Programmatic Usage](/api/programmatic-usage)

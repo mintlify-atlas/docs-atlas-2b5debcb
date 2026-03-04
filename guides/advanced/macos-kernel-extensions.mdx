@@ -1,0 +1,99 @@
+---
+title: macOS Kernel Extensions
+description: Learn how to install macOS kernel extensions using electron-builder scripts
+---
+
+Installing macOS kernel extensions with electron-builder can be done using scripts that run during the installation process.
+
+## Configuration
+
+First, configure your app to build a package (`.pkg`) instead of the default `.dmg`:
+
+```json package.json
+{
+  "build": {
+    "mac": {
+      "target": "pkg"
+    }
+  }
+}
+```
+
+## Script Setup
+
+Place your script and the kernel extensions in `build/pkg-scripts`, or [define a custom directory](/configuration/pkg#scripts).
+
+### Requirements
+
+<Check>The script must be called either `preinstall` or `postinstall`</Check>
+<Check>Use `#!/bin/sh` as the first line in your script</Check>
+<Check>The script must be executable (`chmod +x <filename>`)</Check>
+
+## Example Script
+
+Here's an example `postinstall` script for managing kernel extensions:
+
+```sh build/pkg-scripts/postinstall
+#!/bin/sh
+
+echo "Unloading and uninstalling old extensions..."
+# unload old extensions
+sudo kextunload /Library/Extensions/myExt.kext
+
+# delete old extensions
+sudo rm -rf /Library/Extensions/myExtension.kext
+
+# install new extensions
+echo "Installing and loading new extensions..."
+sudo cp -R myExt.kext /Library/Extensions/myExt.kext
+sudo kextload /Library/Extensions/myExt.kext/
+```
+
+## Making the Script Executable
+
+Before building, ensure your script has execute permissions:
+
+```bash
+chmod +x build/pkg-scripts/postinstall
+```
+
+## Workflow
+
+1. **Unload existing extensions** - Use `kextunload` to unload any old versions
+2. **Remove old files** - Delete old extension files from `/Library/Extensions/`
+3. **Copy new extensions** - Copy your new `.kext` files to the system directory
+4. **Load new extensions** - Use `kextload` to activate the new extensions
+
+## Directory Structure
+
+```
+my-app/
+├── build/
+│   └── pkg-scripts/
+│       ├── postinstall          # Your installation script
+│       └── myExt.kext/          # Your kernel extension
+├── package.json
+└── ...
+```
+
+## Custom Script Directory
+
+To use a custom directory for your scripts, configure the `scripts` option:
+
+```json
+{
+  "build": {
+    "mac": {
+      "target": "pkg"
+    },
+    "pkg": {
+      "scripts": "custom/scripts/directory"
+    }
+  }
+}
+```
+
+## Related
+
+- [macOS pkg Configuration](/configuration/pkg)
+- [macOS Configuration](/configuration/mac)

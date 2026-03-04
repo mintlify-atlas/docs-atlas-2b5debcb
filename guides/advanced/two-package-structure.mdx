@@ -1,0 +1,90 @@
+---
+title: Two package.json Structure
+description: Learn how to use a two package.json structure to separate development and application dependencies
+---
+
+<Info>
+Since version 8, electron-builder rebuilds only production dependencies, so you are not forced to use the two package.json structure.
+</Info>
+
+## Overview
+
+The two package.json structure separates development dependencies from application dependencies by using two separate `package.json` files:
+
+1. **Development** (`./package.json`) - Root package.json for development environment and build scripts
+2. **Application** (`./app/package.json`) - Application package.json distributed with the final packaged app
+
+## Structure
+
+### Root package.json (Development)
+
+The `package.json` at the root of your project declares dependencies for your development environment and build scripts in `devDependencies`.
+
+```json
+{
+  "name": "my-electron-app",
+  "version": "1.0.0",
+  "scripts": {
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0",
+    "typescript": "^5.0.0"
+  }
+}
+```
+
+### App package.json (Production)
+
+The `package.json` in the `app` directory declares your application dependencies. Only this directory is distributed with the final, packaged application.
+
+```json app/package.json
+{
+  "name": "my-electron-app",
+  "version": "1.0.0",
+  "main": "main.js",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "sqlite3": "^5.1.0"
+  }
+}
+```
+
+<Info>
+All metadata fields (`version`, `name`, etc.) should be in the `app/package.json`.
+</Info>
+
+## Why Use Two package.json?
+
+### Native Module Compilation
+
+Native npm modules (written in C, not JavaScript) need different compilation targets:
+
+- **Application dependencies** - Compiled against Electron runtime
+- **Development dependencies** - Compiled against local Node.js environment
+
+The two package.json structure makes this separation trivial.
+
+### Simplified File Management
+
+No need to specify which files to include in the app using the [files configuration](/configuration/contents#files), because development files reside outside the `app` directory.
+
+## Automatic Dependency Installation
+
+To ensure dependencies are always updated based on both files, add a `postinstall` script to your development `package.json`:
+
+```json
+{
+  "scripts": {
+    "postinstall": "electron-builder install-app-deps"
+  }
+}
+```
+
+This automatically triggers an `npm install` within your app directory whenever you install or update dependencies in the root directory.
+
+## Related
+
+- [Loading App Dependencies Manually](/guides/advanced/app-dependencies)
+- [Files Configuration](/configuration/contents#files)

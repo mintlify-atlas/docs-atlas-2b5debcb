@@ -1,0 +1,102 @@
+---
+title: Installation
+description: Install electron-builder with npm, yarn, pnpm, or bun
+---
+
+# Installation
+
+Install electron-builder as a development dependency in your Electron project.
+
+## Package Manager Installation
+
+Choose your preferred package manager to install electron-builder:
+
+<CodeGroup>
+
+```bash npm
+npm install electron-builder --save-dev
+```
+
+```bash yarn
+yarn add electron-builder --dev
+```
+
+```bash pnpm
+pnpm add electron-builder --save-dev
+```
+
+```bash bun
+bun add electron-builder --dev
+```
+
+</CodeGroup>
+
+<Note>
+  electron-builder should always be installed as a **development dependency** (using `--save-dev` or `--dev` flag) since it's only needed during the build process.
+</Note>
+
+## Yarn 3 Configuration
+
+<Warning>
+  If you're using **Yarn 3 or later**, you need to configure it to use `node-modules` instead of the default PnP (Plug'n'Play) mode.
+</Warning>
+
+Yarn 3 uses PnP by default, but electron-builder still requires `node-modules`. Add the following configuration to your `.yarnrc.yaml` file:
+
+```yaml .yarnrc.yaml
+nodeLinker: "node-modules"
+```
+
+This tells Yarn to use the traditional `node_modules` directory structure instead of PnP.
+
+<Note>
+  This is a known limitation tracked in [yarnpkg/berry#4804](https://github.com/yarnpkg/berry/issues/4804#issuecomment-1234407305).
+</Note>
+
+## System Requirements
+
+### Node.js Version
+
+electron-builder requires **Node.js 14.0.0 or higher**.
+
+You can check your Node.js version by running:
+
+```bash
+node --version
+```
+
+### Platform-Specific Requirements
+
+<AccordionGroup>
+  <Accordion title="macOS">
+    - **macOS 10.13 or later** recommended for building macOS apps
+    - **Xcode Command Line Tools** (for code signing): `xcode-select --install`
+  </Accordion>
+
+  <Accordion title="Windows">
+    - **Windows 7 or later**
+    - No additional tools required (electron-builder downloads necessary tools automatically)
+  </Accordion>
+
+  <Accordion title="Linux">
+    - Most modern Linux distributions are supported
+    - For building certain formats (rpm, deb, etc.), electron-builder will download required tools automatically
+    - Docker images are available for CI/CD builds
+  </Accordion>
+</AccordionGroup>
+
+## Verification
+
+After installation, verify that electron-builder is correctly installed:
+
+```bash
+npx electron-builder --version
+```
+
+You should see the version number displayed.
+
+## Next Steps
+
+<Card title="Quick Start Guide" icon="rocket" href="/quick-start">
+  Now that electron-builder is installed, follow the quick start guide to configure your first build
+</Card>

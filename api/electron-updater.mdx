@@ -1,0 +1,518 @@
+---
+title: electron-updater Module
+description: Auto-update library for Electron applications
+---
+
+The `electron-updater` module provides auto-update functionality for Electron applications on macOS, Windows, and Linux.
+
+## Installation
+
+```bash
+npm install electron-updater
+```
+
+## Quick Start
+
+```javascript
+const { autoUpdater } = require("electron-updater")
+
+autoUpdater.checkForUpdatesAndNotify()
+```
+
+## autoUpdater
+
+The main auto-updater instance, automatically configured based on the current platform.
+
+```typescript
+const autoUpdater: AppUpdater
+```
+
+- On Windows: Uses `NsisUpdater`
+- On macOS: Uses `MacUpdater`
+- On Linux: Uses `AppImageUpdater`, `DebUpdater`, `RpmUpdater`, or `PacmanUpdater` based on package type
+
+## AppUpdater Class
+
+Base class for all platform-specific updaters.
+
+Source: `packages/electron-updater/src/AppUpdater.ts:52`
+
+### Properties
+
+<ParamField path="autoDownload" type="boolean" default="true">
+  Whether to automatically download an update when found.
+</ParamField>
+
+<ParamField path="autoInstallOnAppQuit" type="boolean" default="true">
+  Whether to automatically install a downloaded update on app quit.
+</ParamField>
+
+<ParamField path="autoRunAppAfterInstall" type="boolean" default="true">
+  Whether to run the app after install when installer is NOT in silent mode.
+</ParamField>
+
+<ParamField path="allowPrerelease" type="boolean" default="false">
+  Whether to allow update to pre-release versions. Defaults to `true` if the application version contains prerelease components.
+</ParamField>
+
+<ParamField path="fullChangelog" type="boolean" default="false">
+  GitHub provider only. Get all release notes from current version to latest, not just the latest.
+</ParamField>
+
+<ParamField path="allowDowngrade" type="boolean" default="false">
+  Whether to allow version downgrade (when a user from beta channel wants to go back to stable channel).
+</ParamField>
+
+<ParamField path="disableWebInstaller" type="boolean" default="false">
+  Web installer files might not have signature verification, this prevents loading them unless needed.
+</ParamField>
+
+<ParamField path="disableDifferentialDownload" type="boolean" default="false">
+  NSIS only. Disable differential downloads and always perform full download of installer.
+</ParamField>
+
+<ParamField path="forceDevUpdateConfig" type="boolean" default="false">
+  Allows developer to force the updater to work in "dev" mode, looking for `dev-app-update.yml` instead of `app-update.yml`.
+</ParamField>
+
+<ParamField path="channel" type="string | null">
+  The update channel. Overrides channel in the update configuration. Setting this automatically sets `allowDowngrade` to `true`.
+</ParamField>
+
+<ParamField path="currentVersion" type="SemVer" readonly>
+  The current application version.
+</ParamField>
+
+<ParamField path="requestHeaders" type="OutgoingHttpHeaders | null">
+  Custom request headers.
+</ParamField>
+
+<ParamField path="logger" type="Logger | null">
+  The logger. Can be `electron-log`, `winston`, or any logger with `info()`, `warn()`, `error()` methods. Set to `null` to disable logging.
+</ParamField>
+
+### Methods
+
+#### checkForUpdates()
+
+Checks if there is an update available.
+
+```typescript
+checkForUpdates(): Promise<UpdateCheckResult | null>
+```
+
+**Returns:** `Promise<UpdateCheckResult | null>` - Returns `null` if updater is disabled, otherwise update information.
+
+**Example:**
+
+```javascript
+const { autoUpdater } = require("electron-updater")
+
+autoUpdater.checkForUpdates().then((result) => {
+  if (result) {
+    console.log("Update available:", result.updateInfo.version)
+  }
+})
+```
+
+#### checkForUpdatesAndNotify()
+
+Checks for updates and shows a notification when download completes.
+
+```typescript
+checkForUpdatesAndNotify(
+  downloadNotification?: DownloadNotification
+): Promise<UpdateCheckResult | null>
+```
+
+<ParamField path="downloadNotification" type="DownloadNotification">
+  Custom notification configuration.
+  
+  <Expandable title="properties">
+    <ParamField path="title" type="string">
+      Notification title. Supports `{appName}` and `{version}` placeholders.
+    </ParamField>
+    <ParamField path="body" type="string">
+      Notification body. Supports `{appName}` and `{version}` placeholders.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+**Example:**
+
+```javascript
+autoUpdater.checkForUpdatesAndNotify({
+  title: "Update Available",
+  body: "{appName} {version} is ready to install"
+})
+```
+
+#### downloadUpdate()
+
+Downloads an update. Call this if `autoDownload` is `false`.
+
+```typescript
+downloadUpdate(cancellationToken?: CancellationToken): Promise<Array<string>>
+```
+
+<ParamField path="cancellationToken" type="CancellationToken">
+  Token to cancel the download.
+</ParamField>
+
+**Returns:** `Promise<Array<string>>` - Paths to downloaded files.
+
+**Example:**
+
+```javascript
+const { autoUpdater, CancellationToken } = require("electron-updater")
+
+autoUpdater.autoDownload = false
+
+autoUpdater.on("update-available", () => {
+  const cancellationToken = new CancellationToken()
+  
+  autoUpdater.downloadUpdate(cancellationToken)
+    .then((files) => {
+      console.log("Downloaded:", files)
+    })
+})
+```
+
+#### quitAndInstall()
+
+Restarts the app and installs the update.
+
+```typescript
+quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
+```
+
+<ParamField path="isSilent" type="boolean" default="false">
+  Windows only. Runs the installer in silent mode.
+</ParamField>
+
+<ParamField path="isForceRunAfter" type="boolean" default="false">
+  Run the app after install even on silent install. Not applicable for macOS. Ignored if `isSilent` is `false`.
+</ParamField>
+
+**Example:**
+
+```javascript
+autoUpdater.on("update-downloaded", () => {
+  autoUpdater.quitAndInstall()
+})
+```
+
+#### setFeedURL()
+
+Configures the update provider.
+
+```typescript
+setFeedURL(options: PublishConfiguration | AllPublishOptions | string): void
+```
+
+<ParamField path="options" type="PublishConfiguration | AllPublishOptions | string" required>
+  Provider configuration or URL string for generic provider.
+</ParamField>
+
+**Example:**
+
+```javascript
+// Using GitHub
+autoUpdater.setFeedURL({
+  provider: "github",
+  owner: "my-org",
+  repo: "my-repo"
+})
+
+// Using generic URL
+autoUpdater.setFeedURL("https://my-server.com/updates")
+
+// Using S3
+autoUpdater.setFeedURL({
+  provider: "s3",
+  bucket: "my-bucket",
+  region: "us-east-1"
+})
+```
+
+#### addAuthHeader()
+
+Adds an authorization header to requests.
+
+```typescript
+addAuthHeader(token: string): void
+```
+
+<ParamField path="token" type="string" required>
+  Authorization token (e.g., `"Bearer <token>"` or `"token <token>"`).
+</ParamField>
+
+**Example:**
+
+```javascript
+autoUpdater.addAuthHeader("Bearer my-secret-token")
+```
+
+### Events
+
+The `AppUpdater` class extends `EventEmitter` with typed events.
+
+#### checking-for-update
+
+Emitted when checking for updates starts.
+
+```javascript
+autoUpdater.on("checking-for-update", () => {
+  console.log("Checking for updates...")
+})
+```
+
+#### update-available
+
+Emitted when an update is available.
+
+```typescript
+autoUpdater.on("update-available", (info: UpdateInfo) => void)
+```
+
+**Example:**
+
+```javascript
+autoUpdater.on("update-available", (info) => {
+  console.log("Update available:", info.version)
+})
+```
+
+#### update-not-available
+
+Emitted when no update is available.
+
+```typescript
+autoUpdater.on("update-not-available", (info: UpdateInfo) => void)
+```
+
+#### download-progress
+
+Emitted during download progress.
+
+```typescript
+autoUpdater.on("download-progress", (progress: ProgressInfo) => void)
+```
+
+**ProgressInfo properties:**
+- `total: number` - Total bytes
+- `delta: number` - Delta bytes since last event
+- `transferred: number` - Transferred bytes
+- `percent: number` - Progress percentage
+- `bytesPerSecond: number` - Download speed
+
+**Example:**
+
+```javascript
+autoUpdater.on("download-progress", (progress) => {
+  console.log(`Downloaded ${progress.percent}% (${progress.bytesPerSecond} bytes/sec)`)
+})
+```
+
+#### update-downloaded
+
+Emitted when update has been downloaded.
+
+```typescript
+autoUpdater.on("update-downloaded", (event: UpdateDownloadedEvent) => void)
+```
+
+**Example:**
+
+```javascript
+autoUpdater.on("update-downloaded", (event) => {
+  console.log("Update downloaded, will install on quit")
+  // Or install immediately:
+  // autoUpdater.quitAndInstall()
+})
+```
+
+#### update-cancelled
+
+Emitted when update download is cancelled.
+
+```typescript
+autoUpdater.on("update-cancelled", (info: UpdateInfo) => void)
+```
+
+#### error
+
+Emitted when an error occurs.
+
+```typescript
+autoUpdater.on("error", (error: Error, message?: string) => void)
+```
+
+**Example:**
+
+```javascript
+autoUpdater.on("error", (error) => {
+  console.error("Update error:", error)
+})
+```
+
+## Platform-Specific Updaters
+
+### NsisUpdater
+
+Windows NSIS installer updater.
+
+```javascript
+const { NsisUpdater } = require("electron-updater")
+const updater = new NsisUpdater()
+```
+
+### MacUpdater
+
+macOS updater (supports DMG and ZIP).
+
+```javascript
+const { MacUpdater } = require("electron-updater")
+const updater = new MacUpdater()
+```
+
+### AppImageUpdater
+
+Linux AppImage updater.
+
+```javascript
+const { AppImageUpdater } = require("electron-updater")
+const updater = new AppImageUpdater()
+```
+
+### DebUpdater
+
+Linux Debian package updater.
+
+```javascript
+const { DebUpdater } = require("electron-updater")
+const updater = new DebUpdater()
+```
+
+### RpmUpdater
+
+Linux RPM package updater.
+
+```javascript
+const { RpmUpdater } = require("electron-updater")
+const updater = new RpmUpdater()
+```
+
+### PacmanUpdater
+
+Linux Pacman package updater.
+
+```javascript
+const { PacmanUpdater } = require("electron-updater")
+const updater = new PacmanUpdater()
+```
+
+## Complete Example
+
+```javascript
+const { app } = require("electron")
+const { autoUpdater } = require("electron-updater")
+const log = require("electron-log")
+
+// Configure logging
+autoUpdater.logger = log
+autoUpdater.logger.transports.file.level = "info"
+
+// Configure auto-updater
+autoUpdater.autoDownload = false
+autoUpdater.autoInstallOnAppQuit = true
+
+// Event handlers
+autoUpdater.on("checking-for-update", () => {
+  log.info("Checking for update...")
+})
+
+autoUpdater.on("update-available", (info) => {
+  log.info("Update available:", info.version)
+  
+  // Ask user if they want to download
+  dialog.showMessageBox({
+    type: "info",
+    title: "Update Available",
+    message: `Version ${info.version} is available. Download now?`,
+    buttons: ["Yes", "No"]
+  }).then((result) => {
+    if (result.response === 0) {
+      autoUpdater.downloadUpdate()
+    }
+  })
+})
+
+autoUpdater.on("update-not-available", () => {
+  log.info("Update not available")
+})
+
+autoUpdater.on("download-progress", (progress) => {
+  log.info(`Download progress: ${progress.percent}%`)
+})
+
+autoUpdater.on("update-downloaded", () => {
+  log.info("Update downloaded")
+  
+  dialog.showMessageBox({
+    type: "info",
+    title: "Update Ready",
+    message: "Update downloaded. Restart now?",
+    buttons: ["Restart", "Later"]
+  }).then((result) => {
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall()
+    }
+  })
+})
+
+autoUpdater.on("error", (error) => {
+  log.error("Update error:", error)
+})
+
+// Check for updates when app is ready
+app.on("ready", () => {
+  if (!app.isPackaged) {
+    log.info("App is not packaged, skipping update check")
+    return
+  }
+  
+  // Check for updates
+  autoUpdater.checkForUpdates()
+  
+  // Check periodically (every hour)
+  setInterval(() => {
+    autoUpdater.checkForUpdates()
+  }, 60 * 60 * 1000)
+})
+```
+
+## TypeScript Support
+
+```typescript
+import { autoUpdater, UpdateInfo, ProgressInfo } from "electron-updater"
+import log from "electron-log"
+
+autoUpdater.logger = log
+
+autoUpdater.on("update-available", (info: UpdateInfo) => {
+  console.log(`New version available: ${info.version}`)
+})
+
+autoUpdater.on("download-progress", (progress: ProgressInfo) => {
+  console.log(`Progress: ${progress.percent}%`)
+})
+
+await autoUpdater.checkForUpdates()
+```
+
+## See Also
+
+- [Auto Update Documentation](/auto-update)
+- [Publishing Documentation](/publish)
+- [electron-publish Module](/api/electron-publish)

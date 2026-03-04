@@ -1,0 +1,307 @@
+---
+title: File Patterns
+description: Understanding glob patterns for including and excluding files in your electron-builder package
+icon: filter
+---
+
+electron-builder uses glob patterns to determine which files to include or exclude from your application package. Understanding these patterns is essential for controlling your application's size and content.
+
+## Glob Pattern Syntax
+
+### Basic Patterns
+
+| Pattern | Description | Example |
+|---------|-------------|----------|
+| `*` | Matches 0 or more characters in a single path portion | `*.js` matches all JavaScript files |
+| `?` | Matches exactly 1 character | `file?.txt` matches `file1.txt`, `fileA.txt` |
+| `[...]` | Matches a range of characters (like RegExp) | `file[0-9].js` matches `file0.js` through `file9.js` |
+| `[!...]` or `[^...]` | Matches any character NOT in the range | `file[!0-9].js` excludes numbered files |
+| `**` | Matches zero or more directories (globstar) | `src/**/*` matches all files in src and subdirectories |
+
+### Extended Patterns
+
+| Pattern | Description | Example |
+|---------|-------------|----------|
+| `!(pattern\|pattern)` | Matches anything that does NOT match any of the patterns | `!(*.spec\|*.test).js` excludes test files |
+| `?(pattern\|pattern)` | Matches zero or one occurrence of the patterns | `file?(.min).js` matches `file.js` or `file.min.js` |
+| `+(pattern\|pattern)` | Matches one or more occurrences of the patterns | `file+(1\|2\|3).js` matches `file1.js`, `file11.js`, etc. |
+| `*(pattern\|pattern)` | Matches zero or more occurrences of the patterns | `file*(a\|b).js` matches `file.js`, `filea.js`, `fileab.js` |
+| `@(pattern\|pattern)` | Matches exactly one of the patterns | `@(file1\|file2).js` matches only `file1.js` or `file2.js` |
+
+## Using File Patterns
+
+### Including Files
+
+Define which files to include in your application:
+
+```json package.json
+{
+  "build": {
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ]
+  }
+}
+```
+
+<Note>
+If a directory is matched, all its contents are copied automatically. You can specify just `foo` to copy the entire `foo` directory.
+</Note>
+
+### Excluding Files
+
+Use the `!` prefix to exclude files:
+
+```json package.json
+{
+  "build": {
+    "files": [
+      "**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md}",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,__pycache__,thumbs.db,.gitignore,.gitattributes}",
+      "!**/node_modules/**/{test,__tests__,tests,powered-test,example,examples}/**",
+      "!**/*.{spec.js,test.js}"
+    ]
+  }
+}
+```
+
+### Excluding Directories
+
+<Warning>
+Be careful when excluding directories. The pattern `!doNotCopyMe/**/*` would match the files IN the `doNotCopyMe` directory, but not the directory itself, creating an empty directory.
+</Warning>
+
+**Solution**: Use the `${/*}` macro:
+
+```json
+{
+  "build": {
+    "files": [
+      "**/*",
+      "!doNotCopyMe${/*}"
+    ]
+  }
+}
+```
+
+This correctly excludes both the directory and its contents.
+
+## Multiple Glob Patterns
+
+Patterns are processed in order, allowing you to include exceptions to exclusions:
+
+```javascript
+[
+  // Match all files
+  "**/*",
+
+  // Except for js files in the foo/ directory
+  "!foo/*.js",
+
+  // Unless it's foo/bar.js (re-include this specific file)
+  "foo/bar.js",
+]
+```
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "files": [
+      "**/*",
+      "!**/*.map",
+      "dist/important.map"
+    ]
+  }
+}
+```
+
+```yaml electron-builder.yml
+files:
+  - "**/*"
+  - "!**/*.map"
+  - "dist/important.map"
+```
+</CodeGroup>
+
+## File Macros
+
+You can use macros in file patterns, artifact names, and publish URLs. Macros are replaced at build time.
+
+### Available Macros
+
+| Macro | Expands To | Description |
+|-------|-----------|-------------|
+| `${arch}` | `ia32`, `x64`, `arm64` | CPU architecture (removed if no arch with leading space, `-`, `_`) |
+| `${os}` | `mac`, `linux`, `win` | Operating system |
+| `${platform}` | `darwin`, `linux`, `win32` | Node.js process.platform value |
+| `${name}` | package.json name | Application name from package.json |
+| `${productName}` | Sanitized product name | Product name (sanitized for filenames) |
+| `${version}` | package.json version | Application version |
+| `${channel}` | `beta`, `alpha`, etc. | Detected prerelease component from version |
+| `${env.ENV_NAME}` | Environment variable value | Any environment variable |
+| `${buildVersion}` | Build version | From AppInfo |
+| `${buildNumber}` | Build number | From AppInfo |
+
+### Using Macros in Patterns
+
+```json package.json
+{
+  "build": {
+    "files": [
+      "dist/${platform}/**/*",
+      "assets/${os}/**/*"
+    ],
+    "directories": {
+      "output": "release/${version}"
+    },
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+  }
+}
+```
+
+### Environment Variable Macros
+
+```yaml electron-builder.yml
+files:
+  - "**/*"
+  - "config/${env.NODE_ENV}/**/*"
+
+artifactName: "${productName}-${env.BUILD_TAG}.${ext}"
+```
+
+<Note>
+The `${ext}` macro is also supported in artifact file name templates to represent the file extension.
+</Note>
+
+## Common Patterns
+
+### Development vs Production Files
+
+```json
+{
+  "build": {
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.map",
+      "node_modules/**/*",
+      "!node_modules/**/{*.md,*.ts}",
+      "package.json"
+    ]
+  }
+}
+```
+
+### Exclude Source Files
+
+```json
+{
+  "build": {
+    "files": [
+      "**/*",
+      "!src${/*}",
+      "!**/*.ts",
+      "!tsconfig.json",
+      "dist/**/*"
+    ]
+  }
+}
+```
+
+### Platform-Specific Resources
+
+```yaml
+mac:
+  files:
+    - "resources/mac/**/*"
+
+win:
+  files:
+    - "resources/win/**/*"
+
+linux:
+  files:
+    - "resources/linux/**/*"
+```
+
+### Include Build Resources
+
+```json
+{
+  "build": {
+    "files": [
+      "**/*",
+      "build/icon.*"
+    ],
+    "directories": {
+      "buildResources": "build"
+    }
+  }
+}
+```
+
+<Warning>
+Build resources (from the `buildResources` directory) are NOT packed into the app by default. If you need files like tray icons, explicitly include them in the `files` pattern.
+</Warning>
+
+## extraResources and extraFiles
+
+For files that should not be in the app.asar archive:
+
+```json
+{
+  "build": {
+    "extraResources": [
+      {
+        "from": "assets/",
+        "to": ".",
+        "filter": ["**/*"]
+      }
+    ],
+    "extraFiles": [
+      "LICENSE.txt",
+      "README.md"
+    ]
+  }
+}
+```
+
+### FileSet with Patterns
+
+```yaml
+extraResources:
+  - from: "build/"
+    to: "resources/"
+    filter:
+      - "**/*"
+      - "!**/*.map"
+```
+
+<Note>
+See [Application Contents](/concepts/application-contents) for more details on `extraResources` and `extraFiles`.
+</Note>
+
+## Performance Tips
+
+1. **Be specific**: Use specific patterns instead of broad patterns with many exclusions
+2. **Exclude unnecessary files**: Remove development files, documentation, and test files
+3. **Use asarUnpack carefully**: Unpacking too many files can slow down your app
+
+```json
+{
+  "build": {
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "**/node_modules/sharp/**/*",
+      "**/node_modules/sqlite3/**/*"
+    ]
+  }
+}
+```

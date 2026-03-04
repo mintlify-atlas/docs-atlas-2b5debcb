@@ -1,0 +1,477 @@
+---
+title: Multi-Platform Builds
+description: Building Electron applications for Windows, macOS, and Linux across different platforms using Docker and CI/CD
+icon: layer-group
+---
+
+electron-builder supports building applications for multiple platforms from a single codebase. However, there are important limitations and best practices to understand.
+
+## Platform Limitations
+
+<Warning>
+Don't expect to build apps for all platforms on one platform. Platform-specific tools and signing requirements create limitations.
+</Warning>
+
+### macOS Code Signing
+
+**macOS code signing only works on macOS.** This is a fundamental limitation that cannot be fixed due to Apple's security requirements.
+
+- You **cannot** sign macOS apps on Windows or Linux
+- You **must** use a Mac or macOS CI service (Travis, GitHub Actions, CircleCI) for macOS builds
+- Apple's codesigning tools are only available on macOS
+
+### Native Dependencies
+
+If your app has native dependencies, they can only be compiled on the target platform **unless** [prebuild](https://www.npmjs.com/package/prebuild) binaries are provided.
+
+<Note>
+Most Node.js modules don't provide prebuilt binaries. If you have native dependencies, plan to build on each target platform or use CI services.
+</Note>
+
+### Cross-Platform Capabilities
+
+| Build Host | Can Build For |
+|------------|---------------|
+| **macOS** | macOS, Linux, Windows (except AppX) |
+| **Linux** | Linux, Windows (except AppX) |
+| **Windows** | Windows only (can use Electron Build Service for Linux) |
+
+<Note>
+Windows users can use the free [Electron Build Service](https://github.com/electron-userland/electron-build-service) to build Linux apps. AppX support may be added in the future.
+</Note>
+
+## Building for Multiple Platforms
+
+### CLI Flags
+
+By default, electron-builder builds for the current platform and architecture. Use CLI flags to specify targets:
+
+```bash
+# Platform flags
+electron-builder --mac      # macOS
+electron-builder --win      # Windows
+electron-builder --linux    # Linux
+
+# Architecture flags
+electron-builder --x64      # 64-bit
+electron-builder --ia32     # 32-bit
+electron-builder --arm64    # ARM 64-bit
+
+# Combined (short form)
+electron-builder -mwl       # macOS, Windows, Linux
+electron-builder -ml --x64  # macOS and Linux, 64-bit only
+```
+
+### Multiple Targets in One Command
+
+<Note>
+**Highly Recommended:** Build for multiple platforms in a single command for parallel execution. Don't use separate npm scripts like `npm run dist:mac && npm run dist:win`.
+</Note>
+
+```bash
+# Build for all platforms
+electron-builder -mwl
+
+# Build specific targets
+electron-builder --mac dmg zip --win nsis portable
+```
+
+**Benefits:**
+- Builds run in parallel
+- Faster overall build time
+- Output directory is automatically cleaned
+- No need to manually clean between builds
+
+### Configuration
+
+```json package.json
+{
+  "scripts": {
+    "dist": "electron-builder -mwl",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.example.app",
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb", "rpm"]
+    }
+  }
+}
+```
+
+## Docker Support
+
+Use Docker to build Linux and Windows apps from any platform.
+
+<Warning>
+You cannot build for Windows using Docker if you have native dependencies that don't use [prebuild](https://www.npmjs.com/package/prebuild).
+</Warning>
+
+### Docker Images
+
+electron-builder provides official Docker images:
+
+| Image | Description | Use Case |
+|-------|-------------|----------|
+| `electronuserland/builder:20` | Node.js 20 + Linux dependencies | Linux builds only |
+| `electronuserland/builder:wine` | Node.js 20 + Wine | Linux + Windows builds |
+| `electronuserland/builder:wine-mono` | Wine + Mono | Squirrel.Windows target |
+| `electronuserland/builder:wine-chrome` | Wine + Chrome + xvfb | Headless testing |
+
+<Note>
+Images are also available for Node.js 14, 16, and 18 (e.g., `builder:18`, `builder:18-wine`). Pin to specific date tags like `builder:18-07.23` for reproducible builds.
+</Note>
+
+### Building with Docker Locally
+
+1. **Run Docker container:**
+
+```bash
+docker run --rm -ti \
+  --env-file <(env | grep -iE 'DEBUG|NODE_|ELECTRON_|YARN_|NPM_|CI|CIRCLE|TRAVIS|APPVEYOR_|CSC_|GH_|GITHUB_|BT_|AWS_|STRIP|BUILD_') \
+  --env ELECTRON_CACHE="/root/.cache/electron" \
+  --env ELECTRON_BUILDER_CACHE="/root/.cache/electron-builder" \
+  -v ${PWD}:/project \
+  -v ${PWD##*/}-node-modules:/project/node_modules \
+  -v ~/.cache/electron:/root/.cache/electron \
+  -v ~/.cache/electron-builder:/root/.cache/electron-builder \
+  electronuserland/builder:wine
+```
+
+2. **Inside container, build your app:**
+
+```bash
+yarn && yarn dist
+```
+
+**Or run everything in one command:**
+
+```bash
+docker run --rm -ti \
+  --env-file <(env | grep -iE 'DEBUG|NODE_|ELECTRON_|YARN_|NPM_|CI|CIRCLE|TRAVIS|APPVEYOR_|CSC_|GH_|GITHUB_|BT_|AWS_|STRIP|BUILD_') \
+  --env ELECTRON_CACHE="/root/.cache/electron" \
+  --env ELECTRON_BUILDER_CACHE="/root/.cache/electron-builder" \
+  -v ${PWD}:/project \
+  -v ${PWD##*/}-node-modules:/project/node_modules \
+  -v ~/.cache/electron:/root/.cache/electron \
+  -v ~/.cache/electron-builder:/root/.cache/electron-builder \
+  electronuserland/builder:wine \
+  /bin/bash -c "yarn && yarn dist"
+```
+
+<Note>
+**macOS Users:** Use [Docker for Mac](https://docs.docker.com/docker-for-mac/install/), not Docker Toolbox.
+</Note>
+
+## CI/CD Configuration
+
+### Travis CI (macOS + Linux + Windows)
+
+```yaml .travis.yml
+matrix:
+  include:
+    # macOS build
+    - os: osx
+      osx_image: xcode10.2
+      language: node_js
+      node_js: "20"
+      env:
+        - ELECTRON_CACHE=$HOME/.cache/electron
+        - ELECTRON_BUILDER_CACHE=$HOME/.cache/electron-builder
+
+    # Linux build (with Windows via Docker)
+    - os: linux
+      dist: xenial
+      services: docker
+      language: generic
+
+cache:
+  directories:
+    - node_modules
+    - $HOME/.cache/electron
+    - $HOME/.cache/electron-builder
+
+script:
+  - |
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      docker run --rm \
+        --env-file <(env | grep -iE 'DEBUG|NODE_|ELECTRON_|YARN_|NPM_|CI|CIRCLE|TRAVIS|APPVEYOR_|CSC_|_TOKEN|_KEY|AWS_|STRIP|BUILD_') \
+        -v ${PWD}:/project \
+        -v ~/.cache/electron:/root/.cache/electron \
+        -v ~/.cache/electron-builder:/root/.cache/electron-builder \
+        electronuserland/builder:wine \
+        /bin/bash -c "yarn --link-duplicates --pure-lockfile && yarn release --linux --win"
+    else
+      yarn release
+    fi
+
+before_cache:
+  - rm -rf $HOME/.cache/electron-builder/wine
+
+branches:
+  except:
+    - "/^v\\d+\\.\\d+\\.\\d+$/"
+```
+
+<Note>
+- Use `osx_image: xcode10.2` or later for macOS builds
+- Use `dist: xenial` or later for Linux builds
+- Cache electron and electron-builder downloads
+- Clean Wine cache before saving to avoid issues
+</Note>
+
+### GitHub Actions
+
+```yaml .github/workflows/build.yml
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build app
+        run: yarn dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}
+          path: dist/*
+```
+
+### AppVeyor (Windows Only)
+
+<Note>
+Only use AppVeyor if you need to build AppX or have native dependencies without prebuilt binaries. Otherwise, use Travis/GitHub Actions with Docker for Windows builds.
+</Note>
+
+```yaml appveyor.yml
+image: Visual Studio 2017
+
+platform:
+  - x64
+
+cache:
+  - node_modules
+  - '%USERPROFILE%\.electron'
+
+init:
+  - git config --global core.autocrlf input
+
+install:
+  - ps: Install-Product node 20 x64
+  - yarn
+
+build_script:
+  - yarn dist
+
+test: off
+```
+
+## Platform-Specific Requirements
+
+### macOS
+
+**Dependencies (auto-downloaded on macOS 10.12+):**
+- All required dependencies download automatically
+- To build RPM: `brew install rpm`
+
+**Travis CI:**
+```yaml
+osx_image: xcode10.2  # macOS 10.14+
+```
+
+### Linux
+
+**For Linux builds:**
+```bash
+# Required for distributable formats
+sudo apt-get install --no-install-recommends -y libopenjp2-tools
+
+# For RPM
+sudo apt-get install --no-install-recommends -y rpm
+# Or: sudo yum install rpm-build
+
+# For pacman
+sudo apt-get install --no-install-recommends -y bsdtar
+
+# For Snap (only if custom stage packages)
+sudo snap install snapcraft --classic
+sudo snap install multipass --beta --classic
+```
+
+**For Windows builds on Linux:**
+```bash
+# Install Wine 2.0+
+# See: https://www.winehq.org/download#binary
+
+# Install Mono 4.2+ (for Squirrel.Windows)
+# See: http://www.mono-project.com/download/#download-lin
+```
+
+**For 32-bit builds on 64-bit machine:**
+```bash
+sudo apt-get install --no-install-recommends -y gcc-multilib g++-multilib
+```
+
+<Note>
+**Recommended:** Use Docker to avoid installing system dependencies. See Docker section above.
+</Note>
+
+### Windows
+
+**No additional dependencies required** for building Windows apps on Windows.
+
+For other platform builds, use WSL2 with Docker or CI services.
+
+## Troubleshooting
+
+### Native Dependencies Issues
+
+```bash
+# Rebuild native dependencies
+electron-builder install-app-deps
+
+# Or during build
+npm install --force
+```
+
+### Code Signing Issues
+
+<Warning>
+macOS code signing must be done on macOS. If you get signing errors on Linux/Windows, you need to build on a Mac or use macOS CI.
+</Warning>
+
+### Docker Permission Issues
+
+```bash
+# On Linux, if you get permission errors
+sudo chown -R $USER:$USER node_modules dist
+```
+
+### Cache Issues
+
+```bash
+# Clear electron-builder cache
+rm -rf ~/.cache/electron
+rm -rf ~/.cache/electron-builder
+```
+
+## Best Practices
+
+1. **Use CI services** for building multiple platforms automatically
+2. **Build in parallel** using a single command: `electron-builder -mwl`
+3. **Use Docker** for Linux and Windows builds to avoid dependency issues
+4. **Pin Docker image versions** using date tags for reproducible builds
+5. **Cache dependencies** on CI to speed up builds
+6. **Separate build jobs** by platform on CI for faster parallel execution
+7. **Test on target platforms** before releasing
+
+## Example: Complete Multi-Platform Setup
+
+```json package.json
+{
+  "name": "my-electron-app",
+  "version": "1.0.0",
+  "scripts": {
+    "dist": "electron-builder -mwl",
+    "dist:mac": "electron-builder --mac dmg zip",
+    "dist:win": "electron-builder --win nsis portable",
+    "dist:linux": "electron-builder --linux AppImage deb rpm"
+  },
+  "build": {
+    "appId": "com.example.myapp",
+    "productName": "My Electron App",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": ["dmg", "zip"],
+      "icon": "build/icon.icns"
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "target": ["AppImage", "deb", "rpm"],
+      "category": "Development",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
+```
+
+```yaml .github/workflows/release.yml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'yarn'
+      
+      - run: yarn install --frozen-lockfile
+      - run: yarn dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}
+          path: dist/*
+```
+
+This setup enables building for all platforms with proper CI/CD integration and follows electron-builder best practices.

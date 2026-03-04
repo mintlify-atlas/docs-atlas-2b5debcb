@@ -1,0 +1,353 @@
+---
+title: Auto-Update
+description: Set up automatic updates for your Electron app using electron-updater
+---
+
+Auto-updates are enabled by the `electron-updater` package. This allows your application to automatically check for and install new versions, providing a seamless update experience for your users.
+
+<Warning>
+  **Code signing is required on macOS**
+  
+  macOS applications must be [code signed](/distribution/code-signing) in order for auto-updating to work.
+</Warning>
+
+## Auto-Updatable Targets
+
+The following targets support auto-updates out of the box:
+
+- **macOS**: DMG
+- **Linux**: AppImage, DEB, Pacman (beta), RPM
+- **Windows**: NSIS
+
+All these targets are configured by default with no custom configuration required.
+
+<Note>
+  **Squirrel.Windows is not supported**
+  
+  Simplified auto-update is supported on Windows with the default NSIS target, but not with Squirrel.Windows. You can [easily migrate to NSIS](https://github.com/electron-userland/electron-builder/issues/837#issuecomment-355698368).
+  
+  For macOS, the `zip` target is required for Squirrel.Mac, otherwise `latest-mac.yml` cannot be created. The default target for macOS is `dmg`+`zip`, so no explicit configuration is needed.
+</Note>
+
+## Why electron-updater?
+
+The `electron-updater` package offers significant advantages over Electron's built-in autoUpdater:
+
+- **Cross-platform support**: Works on Linux, macOS, and Windows
+- **Code signature validation**: Validates on both macOS and Windows
+- **Automated metadata**: All required metadata files and artifacts are produced and published automatically
+- **Download progress**: Supports download progress and staged rollouts on all platforms
+- **Multiple providers**: GitHub Releases, Amazon S3, DigitalOcean Spaces, Keygen, and generic HTTP(s) servers
+- **Simple setup**: Only 2 lines of code to make it work
+
+## Quick Setup Guide
+
+<Steps>
+  <Step title="Install electron-updater">
+    Install the package as an app dependency:
+    
+    ```bash
+    npm install electron-updater
+    # or
+    yarn add electron-updater
+    ```
+  </Step>
+  
+  <Step title="Configure publish options">
+    Configure the [`publish`](/distribution/publishing) options in your `package.json` or `electron-builder.yml` to specify where you want to host your release files.
+  </Step>
+  
+  <Step title="Build and verify">
+    Build your application and verify that the build directory contains the metadata `.yml` files next to the built application:
+    
+    ```bash
+    npm run build
+    ```
+    
+    Look for files like `latest.yml`, `latest-mac.yml`, or `latest-linux.yml` in your build output.
+  </Step>
+  
+  <Step title="Import autoUpdater">
+    Use `autoUpdater` from `electron-updater` instead of `electron`:
+    
+    <CodeGroup>
+    ```javascript CommonJS
+    const { autoUpdater } = require("electron-updater")
+    ```
+    
+    ```javascript ESM
+    import { autoUpdater } from "electron-updater"
+    ```
+    
+    ```typescript TypeScript
+    import electronUpdater, { type AppUpdater } from 'electron-updater'
+
+    export function getAutoUpdater(): AppUpdater {
+      // Using destructuring to access autoUpdater due to the CommonJS module of 'electron-updater'.
+      // It is a workaround for ESM compatibility issues, see https://github.com/electron-userland/electron-builder/issues/7976.
+      const { autoUpdater } = electronUpdater
+      return autoUpdater
+    }
+    ```
+    </CodeGroup>
+  </Step>
+  
+  <Step title="Check for updates">
+    Call `autoUpdater.checkForUpdatesAndNotify()` to automatically check for and notify users of updates:
+    
+    ```typescript
+    import { autoUpdater } from "electron-updater"
+
+    // Simple approach
+    autoUpdater.checkForUpdatesAndNotify()
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  Do not call `setFeedURL()`. electron-builder automatically creates an `app-update.yml` file for you during the build process in the `resources` directory.
+</Warning>
+
+## Implementation Examples
+
+### Basic Setup with Logging
+
+```typescript
+import { autoUpdater } from "electron-updater"
+
+export default class AppUpdater {
+  constructor() {
+    const log = require("electron-log")
+    log.transports.file.level = "debug"
+    autoUpdater.logger = log
+    autoUpdater.checkForUpdatesAndNotify()
+  }
+}
+```
+
+### Custom Options with Direct Instantiation
+
+If you need more control over the updater configuration (e.g., custom request headers for authorization):
+
+```typescript
+import { NsisUpdater } from "electron-updater"
+// Or MacUpdater, AppImageUpdater
+
+export default class AppUpdater {
+  constructor() {
+    const options = {
+      requestHeaders: {
+        Authorization: 'Bearer token'
+      },
+      provider: 'generic',
+      url: 'https://example.com/auto-updates'
+    }
+
+    const autoUpdater = new NsisUpdater(options)
+    autoUpdater.addAuthHeader(`Bearer ${token}`)
+    autoUpdater.checkForUpdatesAndNotify()
+  }
+}
+```
+
+### Handling Update Events
+
+```typescript
+import { autoUpdater } from "electron-updater"
+import { dialog } from "electron"
+
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for update...')
+})
+
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available:', info)
+})
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('Update not available:', info)
+})
+
+autoUpdater.on('error', (err) => {
+  console.error('Error in auto-updater:', err)
+})
+
+autoUpdater.on('download-progress', (progressObj) => {
+  let log_message = "Download speed: " + progressObj.bytesPerSecond
+  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%'
+  log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')'
+  console.log(log_message)
+})
+
+autoUpdater.on('update-downloaded', (info) => {
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Update Ready',
+    message: 'A new version has been downloaded. Restart the application to apply the updates.',
+    buttons: ['Restart', 'Later']
+  }).then((returnValue) => {
+    if (returnValue.response === 0) autoUpdater.quitAndInstall()
+  })
+})
+```
+
+## Debugging
+
+You don't need to listen to all events to understand what's wrong. Just set a `logger`. [electron-log](https://github.com/megahertz/electron-log) is recommended:
+
+```javascript
+autoUpdater.logger = require("electron-log")
+autoUpdater.logger.transports.file.level = "info"
+```
+
+### Development Testing
+
+To develop/test the update UI/UX without packaging the application:
+
+1. Create a file named `dev-app-update.yml` in the root of your project
+2. Match your `publish` setting from electron-builder config (in YAML format)
+3. Force the updater to work in "dev" mode:
+
+```javascript
+autoUpdater.forceDevUpdateConfig = true
+```
+
+<Warning>
+  Testing in development mode is not recommended. It's better to test auto-update with an installed application, especially on Windows. [Minio](https://github.com/electron-userland/electron-builder/issues/3053#issuecomment-401001573) is recommended as a local server for testing updates.
+</Warning>
+
+## Staged Rollouts
+
+Staged rollouts allow you to distribute the latest version to a subset of users, increasing the percentage over time (similar to Google Play rollouts).
+
+Edit your `latest.yml` / `latest-mac.yml` file manually:
+
+```yaml
+version: 1.1.0
+path: TestApp Setup 1.1.0.exe
+sha512: Dj51I0q8aPQ3ioaz9LMqGYujAYRbDNblAQbodDRXAMxmY6hsHqEl3F6SvhfJj5oPhcqdX1ldsgEvfMNXGUXBIw==
+stagingPercentage: 10
+```
+
+This will ship the update to 10% of your userbase.
+
+<Warning>
+  If you need to pull a staged release due to issues, you **must** increment the version number higher than your broken release. Some users will already be on the broken version, and releasing the same version number would leave them stuck.
+</Warning>
+
+## Private GitHub Updates
+
+You can use a private repository for updates by setting the `GH_TOKEN` environment variable on user machines and the `private` option in your configuration.
+
+<Warning>
+  Private GitHub provider is only for [very special cases](https://github.com/electron-userland/electron-builder/issues/1393#issuecomment-288191885) — not intended for all users.
+  
+  The GitHub API has a rate limit of 5000 requests per user per hour. An update check uses up to 3 requests per check.
+</Warning>
+
+## Events
+
+The `autoUpdater` object emits the following events:
+
+### `error`
+
+Emitted when there is an error while updating.
+
+**Arguments**: `error` (Error)
+
+### `checking-for-update`
+
+Emitted when checking if an update has started.
+
+### `update-available`
+
+Emitted when there is an available update. The update is downloaded automatically if `autoDownload` is `true`.
+
+**Arguments**: `info` (UpdateInfo)
+
+### `update-not-available`
+
+Emitted when there is no available update.
+
+**Arguments**: `info` (UpdateInfo)
+
+### `download-progress`
+
+Emitted on download progress.
+
+**Arguments**: `progress` (ProgressInfo)
+- `bytesPerSecond`: Download speed
+- `percent`: Percentage completed
+- `total`: Total bytes
+- `transferred`: Bytes transferred
+
+### `update-downloaded`
+
+Emitted when an update has been downloaded.
+
+**Arguments**: `info` (UpdateInfo)
+
+## Compatibility
+
+Generated metadata file formats change over time, but compatibility is preserved back to version 1. For new projects, set `electronUpdaterCompatibility` to the current latest format version:
+
+```json
+{
+  "build": {
+    "electronUpdaterCompatibility": ">= 2.16"
+  }
+}
+```
+
+Version compatibility:
+- `1.0.0`: latest-mac.json
+- `2.15.0`: path support
+- `2.16.0`: files support
+
+## Platform-Specific Updaters
+
+The `autoUpdater` automatically selects the appropriate updater based on the platform:
+
+```typescript main.ts:24-59
+// Automatically selects the correct updater
+function doLoadAutoUpdater(): AppUpdater {
+  if (process.platform === "win32") {
+    _autoUpdater = new (require("./NsisUpdater").NsisUpdater)()
+  } else if (process.platform === "darwin") {
+    _autoUpdater = new (require("./MacUpdater").MacUpdater)()
+  } else {
+    _autoUpdater = new (require("./AppImageUpdater").AppImageUpdater)()
+    try {
+      const identity = path.join(process.resourcesPath, "package-type")
+      if (!existsSync(identity)) {
+        return _autoUpdater
+      }
+      const fileType = readFileSync(identity).toString().trim()
+      switch (fileType) {
+        case "deb":
+          _autoUpdater = new (require("./DebUpdater").DebUpdater)()
+          break
+        case "rpm":
+          _autoUpdater = new (require("./RpmUpdater").RpmUpdater)()
+          break
+        case "pacman":
+          _autoUpdater = new (require("./PacmanUpdater").PacmanUpdater)()
+          break
+        default:
+          break
+      }
+    } catch (error: any) {
+      console.warn(
+        "Unable to detect 'package-type' for autoUpdater (rpm/deb/pacman support). If you'd like to expand support, please consider contributing to electron-builder",
+        error.message
+      )
+    }
+  }
+  return _autoUpdater
+}
+```
+
+## Additional Resources
+
+- [Complete example application](https://github.com/iffy/electron-updater-example)
+- [Encapsulated manual update via menu](https://github.com/electron-userland/electron-builder/blob/7f6c3fea6fea8cffa00a43413f5335097aca94b0/pages/encapsulated%20manual%20update%20via%20menu.js)

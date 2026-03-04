@@ -1,0 +1,314 @@
+---
+title: Release Channels
+description: Distribute beta and alpha releases using release channels with auto-updates
+---
+
+Channels allow you to distribute "beta" or "alpha" releases of your application to a chosen set of users. This enables testing an application before releasing it as "latest" (stable).
+
+## How Channels Work
+
+Users who receive "beta" versions will also get "latest" versions. However, users who don't opt into "beta" will only receive "latest" releases.
+
+### Channel Hierarchy
+
+There are three channels, ordered by stability:
+
+1. **latest** - Your application is stable and this is the default channel (example: `1.3.2`)
+2. **beta** - Your application works, but may have some bugs (example: `1.3.2-beta`)
+3. **alpha** - Your application is not stable and in active development (example: `1.3.2-alpha`)
+
+### Version Distribution
+
+Depending on the channel a user is subscribed to, they will receive different versions:
+
+| User Channel | Receives Versions |
+|--------------|------------------|
+| `latest` or none | Only "latest" versions |
+| `beta` | "beta" and "latest" versions |
+| `alpha` | "alpha", "beta", and "latest" versions |
+
+## Configuration
+
+### Electron Builder Configuration
+
+By default (without using channels), all application releases use the "latest" channel.
+
+To enable channels, add this to your `package.json`:
+
+```json package.json
+{
+  "version": "1.3.2-beta",
+  "build": {
+    "generateUpdatesFilesForAllChannels": true
+  }
+}
+```
+
+<Note>
+`allowDowngrade` is automatically set to `true` when `generateUpdatesFilesForAllChannels = true`, so you don't need to set it manually.
+</Note>
+
+### Setting the Channel
+
+All you have to do to release using channels is to define the channel in the version tag of the `package.json`:
+
+- Add `-beta` for beta releases
+- Add `-alpha` for alpha releases  
+- Nothing for "latest" releases
+
+The build will automatically target the related channel based on the version tag.
+
+<Warning>
+**GitHub Releases Exception**
+
+GitHub releases do not respect the version tag even if `detectUpdateChannel` is true. You must *explicitly* set the [`channel`](/configuration/publish#GitHubOptions-channel) option to match the intended release channel.
+</Warning>
+
+### Application Configuration
+
+In your application, define which channel the user will receive updates from:
+
+```typescript
+import { autoUpdater } from "electron-updater"
+
+autoUpdater.channel = "beta"
+```
+
+<Note>
+See the [channel property documentation](/guides/auto-update/setup#properties) for more details.
+</Note>
+
+## Usage Example
+
+### Scenario: Releasing a Beta Version
+
+Imagine your application is stable and in version `1.0.1`.
+
+**Step 1: Create a Beta Release**
+
+To release a beta for the new `1.1.0` version, update the `package.json` version:
+
+```json package.json
+{
+  "version": "1.1.0-beta"
+}
+```
+
+Build and publish your application:
+
+```bash
+npm run build
+npm run publish
+```
+
+**Step 2: Users Receive Beta Updates**
+
+Users who have configured their application to receive beta updates will now get version `1.1.0-beta`:
+
+```typescript
+autoUpdater.channel = "beta"
+autoUpdater.checkForUpdates()
+```
+
+**Step 3: Release as Stable**
+
+When your application is stable enough, release it to all users by removing the `-beta` label:
+
+```json package.json
+{
+  "version": "1.1.0"
+}
+```
+
+Build and publish again. Now all users (including those on the latest channel) will receive version `1.1.0`.
+
+## Advanced Configuration
+
+### Setting Channel Dynamically
+
+You can allow users to switch channels within your application:
+
+```typescript
+import { autoUpdater } from "electron-updater"
+import { app, Menu } from "electron"
+
+function setUpdateChannel(channel: 'latest' | 'beta' | 'alpha') {
+  autoUpdater.channel = channel
+  
+  // Save preference
+  app.setPreference('updateChannel', channel)
+  
+  // Check for updates on new channel
+  autoUpdater.checkForUpdates()
+}
+
+// Create menu for channel selection
+const channelMenu = Menu.buildFromTemplate([
+  {
+    label: 'Update Channel',
+    submenu: [
+      {
+        label: 'Stable',
+        type: 'radio',
+        click: () => setUpdateChannel('latest')
+      },
+      {
+        label: 'Beta',
+        type: 'radio',
+        click: () => setUpdateChannel('beta')
+      },
+      {
+        label: 'Alpha',
+        type: 'radio',
+        click: () => setUpdateChannel('alpha')
+      }
+    ]
+  }
+])
+```
+
+### Prerelease Handling
+
+The `allowPrerelease` property automatically detects if your application version contains prerelease components:
+
+```typescript
+import { autoUpdater } from "electron-updater"
+
+// If current version is 0.12.1-alpha.1, allowPrerelease is automatically true
+console.log(autoUpdater.allowPrerelease) // true
+
+// This means allowDowngrade is also automatically set to true
+console.log(autoUpdater.allowDowngrade) // true
+```
+
+## Channel Best Practices
+
+<Check>
+  **Use semantic versioning** - Follow semver conventions for version numbers
+</Check>
+
+<Check>
+  **Test in beta first** - Always test new features in beta before releasing to stable
+</Check>
+
+<Check>
+  **Clear upgrade path** - Ensure beta users can always upgrade to stable
+</Check>
+
+<Check>
+  **Document channel purpose** - Make it clear to users what each channel means
+</Check>
+
+<Check>
+  **Monitor beta feedback** - Use beta channel to gather feedback before stable release
+</Check>
+
+## Version Naming Conventions
+
+Follow these conventions for clarity:
+
+| Version Type | Format | Example |
+|-------------|--------|----------|
+| Stable | `MAJOR.MINOR.PATCH` | `1.2.3` |
+| Beta | `MAJOR.MINOR.PATCH-beta.BUILD` | `1.2.3-beta.1` |
+| Alpha | `MAJOR.MINOR.PATCH-alpha.BUILD` | `1.2.3-alpha.1` |
+| Release Candidate | `MAJOR.MINOR.PATCH-rc.BUILD` | `1.2.3-rc.1` |
+
+## Example Workflow
+
+### Complete Release Cycle
+
+```bash
+# 1. Develop new features on alpha channel
+npm version 2.0.0-alpha.1
+npm run build && npm run publish
+
+# 2. Move to beta when features are complete
+npm version 2.0.0-beta.1
+npm run build && npm run publish
+
+# 3. Release candidate after beta testing
+npm version 2.0.0-rc.1
+npm run build && npm run publish
+
+# 4. Final stable release
+npm version 2.0.0
+npm run build && npm run publish
+```
+
+### Configuration for Each Stage
+
+```json package.json (Alpha)
+{
+  "version": "2.0.0-alpha.1",
+  "build": {
+    "generateUpdatesFilesForAllChannels": true
+  }
+}
+```
+
+```json package.json (Beta)
+{
+  "version": "2.0.0-beta.1",
+  "build": {
+    "generateUpdatesFilesForAllChannels": true
+  }
+}
+```
+
+```json package.json (Stable)
+{
+  "version": "2.0.0",
+  "build": {
+    "generateUpdatesFilesForAllChannels": true
+  }
+}
+```
+
+## Downgrading Between Channels
+
+When `allowDowngrade` is set to `true` (which happens automatically with `generateUpdatesFilesForAllChannels`), users can move from a beta channel back to stable:
+
+```typescript
+import { autoUpdater } from "electron-updater"
+
+// User is on version 1.1.0-beta
+// Switching to stable channel will download 1.0.1 (if that's the latest stable)
+autoUpdater.allowDowngrade = true
+autoUpdater.channel = "latest"
+autoUpdater.checkForUpdates()
+```
+
+<Warning>
+Downgrading may cause data compatibility issues if the beta version made changes to user data or settings. Always handle migrations carefully.
+</Warning>
+
+## Testing Channels
+
+To test channel functionality locally:
+
+1. Build and install version `1.0.0` (stable)
+2. Build version `1.1.0-beta` and publish to your update server
+3. In your installed app, switch to beta channel:
+   ```typescript
+   autoUpdater.channel = "beta"
+   ```
+4. Check for updates - should detect `1.1.0-beta`
+5. Switch back to stable channel:
+   ```typescript
+   autoUpdater.channel = "latest"
+   ```
+6. Check for updates - should stay on or offer `1.0.0` (if `allowDowngrade` is true)
+
+For more detailed testing instructions, see the [Testing Auto-Updates](/guides/auto-update/testing) guide.
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Auto-Update Setup" icon="rotate" href="/guides/auto-update/setup">
+    Learn how to set up auto-updates in your application
+  </Card>
+  <Card title="Testing Updates" icon="flask" href="/guides/auto-update/testing">
+    Test auto-updates locally with Minio
+  </Card>
+</CardGroup>

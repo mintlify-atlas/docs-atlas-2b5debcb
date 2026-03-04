@@ -1,0 +1,105 @@
+---
+title: Introduction to electron-builder
+description: A complete solution to package and build a ready for distribution Electron app for macOS, Windows and Linux with auto update support out of the box
+---
+
+# Introduction to electron-builder
+
+electron-builder is a complete solution to package and build a ready-for-distribution [Electron](https://electronjs.org) app for macOS, Windows, and Linux with auto-update support out of the box.
+
+## What is electron-builder?
+
+electron-builder provides everything you need to build and distribute professional Electron applications:
+
+- **Package Management**: Handles native application dependencies compilation (including Yarn support) and automatically excludes development dependencies
+- **Code Signing**: Sign your applications on CI servers or development machines
+- **Auto Update**: Built-in support for auto-update functionality
+- **Multiple Distribution Formats**: Support for numerous target formats across all platforms
+- **Publishing**: Deploy artifacts to GitHub Releases, Amazon S3, DigitalOcean Spaces, and more
+
+## Key Benefits
+
+<CardGroup cols={2}>
+  <Card title="Cross-Platform" icon="laptop">
+    Build for macOS, Windows, and Linux from a single configuration
+  </Card>
+  
+  <Card title="Zero Configuration" icon="magic">
+    Works out of the box with sensible defaults, configure only what you need
+  </Card>
+  
+  <Card title="Auto Updates" icon="arrows-rotate">
+    Built-in auto-update support ready for production use
+  </Card>
+  
+  <Card title="Code Signing" icon="shield-check">
+    Integrated code signing support for all platforms
+  </Card>
+</CardGroup>
+
+## Supported Distribution Formats
+
+### macOS
+- **DMG** - Disk Image
+- **PKG** - Installer Package
+- **MAS** - Mac App Store
+
+### Windows
+- **NSIS** - Installer
+- **NSIS Web** - Web installer
+- **Portable** - Standalone app without installation
+- **AppX** - Windows Store
+- **MSI** - Windows Installer
+- **Squirrel.Windows** - Update framework
+
+### Linux
+- **AppImage** - Universal Linux package
+- **Snap** - Snapcraft package
+- **deb** - Debian/Ubuntu package
+- **rpm** - Red Hat/Fedora package
+- **freebsd**, **pacman**, **p5p**, **apk** - Other Linux distributions
+
+### All Platforms
+- **7z**, **zip**, **tar.xz**, **tar.7z**, **tar.lz**, **tar.gz**, **tar.bz2**, **dir** (unpacked directory)
+
+## Key Features
+
+### NPM Package Management
+- Native application dependencies compilation with full Yarn support
+- Development dependencies are automatically excluded
+- Support for [two package.json structure](https://www.electron.build/tutorials/two-package-structure) (optional)
+
+### Advanced Building
+- Pack already packaged apps in distributable formats
+- Separate build steps for custom workflows
+- Parallel building and publishing
+- Hard links on CI servers to reduce IO and disk space usage
+- Docker images available for building Linux or Windows apps on any platform
+
+### Automatic Tool Management
+- Downloads all required tools on demand (e.g., code signing tools, AppX maker)
+- No manual setup required
+
+## Proton Native Support
+
+electron-builder also supports building [Proton Native](https://proton-native.js.org/) applications.
+
+## Getting Help
+
+| Question | Answer |
+| --- | --- |
+| "I want to configure electron-builder" | [See options](https://electron.build/configuration) |
+| "I found a bug or I have a question" | [Open an issue](https://github.com/electron-userland/electron-builder/issues/new) |
+| "I want to support development" | [Donate](https://www.electron.build/donate) |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install electron-builder with your preferred package manager
+  </Card>
+  
+  <Card title="Quick Start" icon="rocket" href="/quick-start">
+    Get started with a simple setup guide
+  </Card>
+</CardGroup>

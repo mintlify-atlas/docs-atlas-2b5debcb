@@ -1,0 +1,304 @@
+---
+title: Windows Code Signing
+description: Complete guide to signing Windows applications with electron-builder using standard certificates, EV certificates, or Azure Trusted Signing
+---
+
+Windows code signing is fully supported in electron-builder. If configuration values are provided correctly, signing is executed automatically during the build process.
+
+<Note>
+Windows applications are dual code-signed using both SHA1 and SHA256 hashing algorithms for maximum compatibility.
+</Note>
+
+## Certificate Types
+
+There are two types of Windows code signing certificates:
+
+### Standard Code Signing Certificate
+
+- Works with auto-update functionality
+- More affordable option
+- Shows a warning during installation until trust is established
+- The warning disappears once enough users have installed your application
+- **Can be exported** for use on CI servers
+- Best for: Most applications, CI/CD workflows
+
+### EV (Extended Validation) Code Signing Certificate
+
+- Works with auto-update functionality
+- Higher trust level - works immediately without warnings
+- More expensive than standard certificates
+- Bound to a physical USB dongle (hardware token)
+- **Cannot be exported** for CI builds
+- Requires `win.certificateSubjectName` configuration
+- Best for: Enterprise applications, when immediate trust is critical
+
+## Prerequisites
+
+<Warning>
+If you are using Windows 7, ensure that [PowerShell is updated to version 3.0](https://blogs.technet.microsoft.com/heyscriptingguy/2013/06/02/weekend-scripter-install-powershell-3-0-on-windows-7/).
+</Warning>
+
+## Standard Certificate Signing
+
+For standard code signing certificates that can be exported:
+
+<Steps>
+  <Step title="Obtain your certificate">
+    Purchase a code signing certificate from a trusted Certificate Authority:
+    - DigiCert
+    - Sectigo (formerly Comodo)
+    - SSL.com
+    - GlobalSign
+    
+    Export your certificate as a `.pfx` or `.p12` file with a strong password.
+  </Step>
+
+  <Step title="Set environment variables">
+    Configure the following environment variables:
+    
+    ```bash
+    # Certificate file path or base64-encoded content
+    CSC_LINK=/path/to/certificate.pfx
+    
+    # Certificate password
+    CSC_KEY_PASSWORD=your-certificate-password
+    ```
+    
+    For CI/CD, encode your certificate to base64:
+    ```bash
+    # Windows (PowerShell)
+    [Convert]::ToBase64String([IO.File]::ReadAllBytes("certificate.pfx")) | Out-File -Encoding ASCII encoded.txt
+    
+    # macOS/Linux
+    base64 -i certificate.pfx -o encoded.txt
+    ```
+    
+    Then set `CSC_LINK` to the base64 string.
+  </Step>
+
+  <Step title="Build your application">
+    Run your build command as usual:
+    
+    ```bash
+    npm run build
+    # or
+    electron-builder --win
+    ```
+    
+    electron-builder will automatically sign your application during the build process.
+  </Step>
+</Steps>
+
+<Note>
+If building Windows apps on macOS/Linux and using different credentials, set `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` instead of the standard `CSC_*` variables.
+</Note>
+
+## EV Certificate Signing
+
+For Extended Validation certificates with hardware tokens:
+
+<Steps>
+  <Step title="Connect the hardware token">
+    Ensure your EV certificate's USB hardware token is connected to the build machine.
+  </Step>
+
+  <Step title="Configure certificateSubjectName">
+    In your `electron-builder` configuration, specify the certificate subject name:
+    
+    ```json
+    {
+      "win": {
+        "certificateSubjectName": "Your Company Name, Inc."
+      }
+    }
+    ```
+    
+    The subject name must match exactly what's in your certificate. To find it:
+    
+    1. Open Certificate Manager (certmgr.msc)
+    2. Navigate to Personal → Certificates
+    3. Double-click your certificate
+    4. Use the "Issued to" name exactly as shown
+  </Step>
+
+  <Step title="Build on the token machine">
+    Run your build on the machine with the hardware token connected:
+    
+    ```bash
+    electron-builder --win
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+EV certificates cannot be used on CI servers (AppVeyor, GitHub Actions, etc.) because they require the physical hardware token. Consider using standard certificates for CI builds.
+</Warning>
+
+## Azure Trusted Signing (Beta)
+
+Microsoft offers a cloud-based code signing service called Azure Trusted Signing, which is an excellent option for CI/CD workflows.
+
+### Setup Overview
+
+<Steps>
+  <Step title="Create Azure Trusted Signing Account">
+    Follow [Microsoft's quickstart guide](https://learn.microsoft.com/en-us/azure/trusted-signing/quickstart) to set up a Trusted Signing Account.
+  </Step>
+
+  <Step title="Create App Registration">
+    [Set up an App registration](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app) in Azure:
+    
+    1. Create the App registration
+    2. Create a "Secret" for it (save the secret value)
+    3. [Assign the role](https://learn.microsoft.com/en-us/azure/trusted-signing/tutorial-assign-roles) "Trusted Signing Certificate Profile Signer" to the App registration
+    
+    <Note>
+    The App registration is considered a "service principal" - you'll need to search for its name to find it in the role assignment panel.
+    </Note>
+  </Step>
+
+  <Step title="Configure electron-builder">
+    Add Azure Trusted Signing configuration to your `electron-builder` config:
+    
+    ```json
+    {
+      "win": {
+        "azureSignOptions": {
+          "publisherName": "CN=Your Company Name",
+          "endpoint": "https://your-endpoint.codesigning.azure.net",
+          "certificateProfileName": "your-profile-name",
+          "codeSigningAccountName": "your-signing-account-name"
+        }
+      }
+    }
+    ```
+    
+    **Configuration properties:**
+    
+    | Property | Description |
+    | -------- | ----------- |
+    | `publisherName` | Must match exactly the CommonName (CN) property of your certificate |
+    | `endpoint` | The endpoint you selected when creating your certificate |
+    | `certificateProfileName` | The name of the certificate profile in your Trusted Signing Account |
+    | `codeSigningAccountName` | The name of the Trusted Signing Account (NOT the app registration name) |
+  </Step>
+
+  <Step title="Set environment variables">
+    Configure authentication environment variables (for service principal with secret):
+    
+    ```bash
+    # Azure AD Tenant ID (from Entra ID portal)
+    AZURE_TENANT_ID=your-tenant-id
+    
+    # Application (Client) ID from your App registration
+    AZURE_CLIENT_ID=your-client-id
+    
+    # Secret value from your App registration (not the secret ID)
+    AZURE_CLIENT_SECRET=your-client-secret
+    ```
+    
+    <Note>
+    These environment variables are read directly by the `Invoke-TrustedSigning` PowerShell module.
+    </Note>
+    
+    For other authentication methods, see [Azure.Identity EnvironmentCredential documentation](https://learn.microsoft.com/en-us/dotnet/api/azure.identity.environmentcredential?view=azure-dotnet#definition).
+  </Step>
+
+  <Step title="Build your application">
+    Run your build as usual:
+    
+    ```bash
+    electron-builder --win
+    ```
+    
+    electron-builder will use Azure Trusted Signing automatically.
+  </Step>
+</Steps>
+
+<Note>
+If both `azureSignOptions` and `signtoolOptions` are configured, `azureSignOptions` takes precedence and `signtoolOptions` will be ignored.
+</Note>
+
+## Code Signing on Unix Systems
+
+You can sign Windows applications from macOS or Linux:
+
+<Steps>
+  <Step title="Use standard certificate">
+    EV certificates (hardware tokens) cannot be used on Unix systems. Use a standard exportable certificate instead.
+  </Step>
+
+  <Step title="Set Windows-specific variables">
+    ```bash
+    WIN_CSC_LINK=/path/to/windows-certificate.pfx
+    WIN_CSC_KEY_PASSWORD=your-password
+    ```
+  </Step>
+
+  <Step title="Build for Windows">
+    ```bash
+    electron-builder --win
+    ```
+  </Step>
+</Steps>
+
+For detailed instructions on signing Windows apps from Unix, see the [Code Signing Windows Apps on Unix tutorial](/tutorials/code-signing-windows-apps-on-unix).
+
+## Troubleshooting
+
+### Certificate Not Found
+
+If electron-builder cannot find your certificate:
+
+1. Verify the certificate is in the correct keystore
+2. Check that `CSC_LINK` points to the correct file
+3. Ensure `CSC_KEY_PASSWORD` is correct
+4. For EV certificates, verify `certificateSubjectName` matches exactly
+
+### Environment Variable Length Limit
+
+<Warning>
+Windows cannot handle environment variable values longer than 8192 characters.
+</Warning>
+
+If your base64-encoded certificate exceeds this limit:
+
+1. Re-export your certificate
+2. Uncheck "Include all certificates in the certification path if possible"
+3. The extra certificates in the chain are not necessary
+
+### Build Fails with "Couldn't resolve host name"
+
+This is a transient network error. electron-builder automatically retries signing operations up to 3 times with exponential backoff.
+
+### File Being Used by Another Process
+
+This can occur on Windows when:
+- Antivirus software is scanning the file
+- Multiple build processes are running simultaneously
+
+electron-builder automatically retries the signing operation.
+
+## Example Configuration
+
+```json
+{
+  "win": {
+    "target": ["nsis", "portable"],
+    "certificateSubjectName": "Your Company, Inc.",
+    "signingHashAlgorithms": ["sha1", "sha256"],
+    "verifyUpdateCodeSignature": true
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="macOS Code Signing" icon="apple" href="/guides/code-signing/macos">
+    Learn about macOS code signing and notarization
+  </Card>
+  <Card title="Auto Update" icon="arrows-rotate" href="/distribution/auto-update">
+    Set up auto-update with signed applications
+  </Card>
+</CardGroup>

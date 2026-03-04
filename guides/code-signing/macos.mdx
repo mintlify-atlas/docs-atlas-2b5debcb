@@ -1,0 +1,421 @@
+---
+title: macOS Code Signing & Notarization
+description: Complete guide to signing and notarizing macOS applications with electron-builder, including keychain management and certificate setup
+---
+
+macOS code signing and notarization are fully supported in electron-builder. On a development machine with valid certificates in your keychain, signing happens automatically. For CI/CD, you can provide certificates via environment variables.
+
+<Note>
+On a macOS development machine, a valid and appropriate identity from your keychain is automatically used. If no identity exists:
+- **ARM or universal builds**: An ad-hoc signature is applied by default
+- **Intel-only builds**: No signing by default
+</Note>
+
+## Understanding macOS Code Signing
+
+macOS requires apps to be signed with Apple-issued certificates from the Apple Developer Program. This ensures:
+
+- Apps pass Gatekeeper security checks
+- Users can verify the app's authenticity
+- The app can be notarized for distribution
+- Localized descriptions display correctly
+
+## Certificate Types
+
+Different distribution methods require different certificate types:
+
+| Certificate Type | Usage |
+| ---------------- | ----- |
+| **Developer ID Application** | Sign apps for distribution outside the Mac App Store |
+| **Developer ID Installer** | Sign installer packages (.pkg) for distribution outside the Mac App Store |
+| **3rd Party Mac Developer Application** | Sign apps for Mac App Store submission (legacy) |
+| **Apple Distribution** | Sign apps for Mac App Store submission (current) |
+| **3rd Party Mac Developer Installer** | Sign installer packages for Mac App Store |
+| **Mac Developer** / **Apple Development** | Sign development builds for testing MAS submissions (`mas-dev` target) |
+
+<Note>
+You can import multiple certificates into your keychain or CI environment. electron-builder will automatically select the appropriate certificate for your build target.
+</Note>
+
+## Exporting Certificates from Keychain
+
+To use your certificates on CI or another machine:
+
+<Steps>
+  <Step title="Open Keychain Access">
+    Launch Keychain Access.app from `/Applications/Utilities/`.
+  </Step>
+
+  <Step title="Select certificates">
+    1. Select the `login` keychain in the left sidebar
+    2. Select the `My Certificates` category
+    3. Select all required certificates using Cmd+Click:
+       - `Developer ID Application:` for apps outside Mac App Store
+       - `Developer ID Installer:` for installers outside Mac App Store
+       - `Apple Distribution` or `3rd Party Mac Developer Application:` for Mac App Store apps
+       - `3rd Party Mac Developer Installer:` for Mac App Store installers
+       - `Apple Development:` or `Mac Developer:` for development testing
+    
+    <Note>
+    Select all certificates you need in a single export. All selected certificates will be imported into the temporary keychain on your CI server.
+    </Note>
+  </Step>
+
+  <Step title="Export certificates">
+    1. Right-click on the selected certificates
+    2. Choose "Export" from the context menu
+    3. Save as `.p12` format
+    4. Set a strong password (you'll need this for `CSC_KEY_PASSWORD`)
+  </Step>
+
+  <Step title="Encode for CI">
+    Encode the `.p12` file to base64:
+    
+    ```bash
+    base64 -i YourCertificates.p12 -o encoded.txt
+    ```
+    
+    Use the contents of `encoded.txt` as your `CSC_LINK` environment variable.
+  </Step>
+</Steps>
+
+## Development Machine Setup
+
+On your Mac development machine, signing typically works automatically:
+
+### Automatic Identity Discovery
+
+By default, `CSC_IDENTITY_AUTO_DISCOVERY=true`, so electron-builder will:
+
+1. Search your keychain for valid signing identities
+2. Select the appropriate certificate for your build target
+3. Sign your application automatically
+
+```bash
+# Build automatically uses keychain certificates
+npm run build
+```
+
+### Specifying a Certificate Name
+
+If you have multiple identities and want to use a specific one:
+
+```bash
+# Use a specific certificate by name
+CSC_NAME="Your Company Name" npm run build
+```
+
+<Note>
+`CSC_NAME` should be the name portion after the certificate type prefix (e.g., just "Your Company Name", not "Developer ID Application: Your Company Name").
+</Note>
+
+## CI/CD Setup
+
+For build servers without keychain access:
+
+<Steps>
+  <Step title="Export and encode certificate">
+    Follow the "Exporting Certificates from Keychain" steps above to get a base64-encoded `.p12` file.
+  </Step>
+
+  <Step title="Set environment variables">
+    Configure these variables in your CI environment:
+    
+    ```bash
+    # Base64-encoded certificate or HTTPS link to .p12 file
+    CSC_LINK=<base64-encoded-certificate>
+    
+    # Certificate password
+    CSC_KEY_PASSWORD=your-certificate-password
+    
+    # Optional: For installer signing
+    CSC_INSTALLER_LINK=<base64-encoded-installer-cert>
+    CSC_INSTALLER_KEY_PASSWORD=your-installer-password
+    ```
+    
+    <Warning>
+    Never commit these values to your repository. Use your CI platform's secret management:
+    - GitHub Actions: Repository Secrets
+    - Travis CI: Repository Settings → Environment Variables
+    - CircleCI: Project Settings → Environment Variables
+    - GitLab CI: Settings → CI/CD → Variables
+    </Warning>
+  </Step>
+
+  <Step title="Configure notarization (recommended)">
+    For apps distributed outside the Mac App Store, configure notarization:
+    
+    ```bash
+    # App-specific password for notarization
+    APPLE_ID=your-apple-id@example.com
+    APPLE_APP_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
+    APPLE_TEAM_ID=YOUR_TEAM_ID
+    ```
+    
+    Or use the newer notarytool API key method:
+    
+    ```bash
+    APPLE_API_KEY=AuthKey_XXXXXXXXXX.p8
+    APPLE_API_KEY_ID=XXXXXXXXXX
+    APPLE_API_ISSUER=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    ```
+  </Step>
+
+  <Step title="Run your build">
+    ```bash
+    npm run build
+    # or
+    electron-builder --mac
+    ```
+    
+    electron-builder will:
+    1. Create a temporary keychain
+    2. Import your certificates
+    3. Sign your application
+    4. Notarize your application (if configured)
+    5. Clean up the temporary keychain
+  </Step>
+</Steps>
+
+## Disabling Code Signing
+
+Sometimes you may want to build unsigned (e.g., for testing):
+
+### Method 1: Environment Variable
+
+```bash
+CSC_IDENTITY_AUTO_DISCOVERY=false npm run build
+```
+
+### Method 2: Configuration
+
+In your `electron-builder` config:
+
+```json
+{
+  "mac": {
+    "identity": null
+  }
+}
+```
+
+Or via CLI:
+
+```bash
+electron-builder --mac -c.mac.identity=null
+```
+
+### Method 3: Ad-Hoc Signing (ARM/Universal)
+
+For ARM or universal builds, use ad-hoc signing instead of no signature:
+
+```json
+{
+  "mac": {
+    "identity": "-"
+  }
+}
+```
+
+<Warning>
+Ad-hoc signed apps cannot be notarized or distributed to other users. This is only suitable for local development and testing.
+</Warning>
+
+## Notarization
+
+For apps distributed outside the Mac App Store, Apple requires notarization:
+
+### What is Notarization?
+
+Notarization is an automated security check by Apple:
+- Apple scans your app for malicious content
+- If it passes, Apple adds a "ticket" to your app
+- Gatekeeper verifies this ticket when users run your app
+- Required for macOS 10.15+ to avoid warnings
+
+### Notarization Setup
+
+electron-builder handles notarization automatically when you provide credentials:
+
+#### Option 1: App-Specific Password (Recommended)
+
+```json
+{
+  "mac": {
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "build/entitlements.mac.plist",
+    "entitlementsInherit": "build/entitlements.mac.plist"
+  },
+  "afterSign": "scripts/notarize.js"
+}
+```
+
+Environment variables:
+```bash
+APPLE_ID=your-apple-id@example.com
+APPLE_APP_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
+APPLE_TEAM_ID=YOUR_TEAM_ID
+```
+
+<Note>
+Create an app-specific password at [appleid.apple.com](https://appleid.apple.com):
+1. Sign in with your Apple ID
+2. Navigate to Security → App-Specific Passwords
+3. Generate a new password
+</Note>
+
+#### Option 2: API Key
+
+```bash
+APPLE_API_KEY=/path/to/AuthKey_XXXXXXXXXX.p8
+APPLE_API_KEY_ID=XXXXXXXXXX
+APPLE_API_ISSUER=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+<Note>
+Download API keys from [App Store Connect](https://appstoreconnect.apple.com):
+1. Users and Access → Keys
+2. Create a new key with "Developer" access
+3. Download the `.p8` file (you can only download it once)
+</Note>
+
+### Hardened Runtime Requirements
+
+Notarized apps must use the hardened runtime with appropriate entitlements.
+
+Example `entitlements.mac.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+  </dict>
+</plist>
+```
+
+<Warning>
+Only add entitlements your app actually needs. Unnecessary entitlements may cause notarization to fail.
+</Warning>
+
+## Mac App Store Signing
+
+For Mac App Store distribution:
+
+<Steps>
+  <Step title="Use correct certificates">
+    - **Apple Distribution** or **3rd Party Mac Developer Application** for the app
+    - **3rd Party Mac Developer Installer** for the installer
+  </Step>
+
+  <Step title="Add provisioning profile">
+    Download your provisioning profile from Apple Developer and place it in your project root or specify its path:
+    
+    ```json
+    {
+      "mas": {
+        "provisioningProfile": "path/to/embedded.provisionprofile"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Configure entitlements">
+    Mac App Store apps require specific entitlements. Create `entitlements.mas.plist`:
+    
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+      <dict>
+        <key>com.apple.security.app-sandbox</key>
+        <true/>
+        <key>com.apple.security.application-groups</key>
+        <array>
+          <string>YOUR_TEAM_ID.your.app.bundle.id</string>
+        </array>
+      </dict>
+    </plist>
+    ```
+  </Step>
+
+  <Step title="Build for Mac App Store">
+    ```bash
+    electron-builder --mac mas
+    ```
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### No Valid Signing Identity Found
+
+If electron-builder reports no valid identity:
+
+1. **Check available identities**:
+   ```bash
+   security find-identity -v -p codesigning
+   ```
+
+2. **Verify certificate is valid**:
+   - Open Keychain Access
+   - Find your certificate in My Certificates
+   - Ensure it shows as valid (not expired)
+   - Check that the private key is present
+
+3. **Force discovery**:
+   ```bash
+   CSC_IDENTITY_AUTO_DISCOVERY=true npm run build
+   ```
+
+### Certificate Chain Issues on CI
+
+If builds fail with certificate chain errors:
+
+1. Ensure you're on macOS (not Linux) for macOS builds
+2. Check that the root certificate keychain is being added
+3. Verify your `.p12` file includes the private key
+
+### Notarization Fails
+
+Common notarization issues:
+
+1. **Missing entitlements**: Add required hardened runtime entitlements
+2. **Invalid bundle ID**: Ensure bundle ID matches your certificate
+3. **Unsigned native modules**: All native dependencies must be signed
+4. **Invalid credentials**: Verify `APPLE_ID` and password are correct
+
+Check notarization logs:
+```bash
+xcrun notarytool log --apple-id YOUR_APPLE_ID --password YOUR_PASSWORD SUBMISSION_ID
+```
+
+## Video Tutorial
+
+Watch this community-created tutorial on macOS code signing and notarization:
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/hYBLfjT57hU?si=lADhxKdYM_5mHsPo" title="MacOS Code Signing in Electron" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+## Additional Resources
+
+- [Notarizing your Electron application](https://kilianvalkhof.com/2019/electron/notarizing-your-electron-application/) by Kilian Valkhof
+- [Apple's Notarization Documentation](https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution)
+- [Apple's Code Signing Guide](https://developer.apple.com/library/archive/documentation/Security/Conceptual/CodeSigningGuide/Introduction/Introduction.html)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Windows Code Signing" icon="windows" href="/guides/code-signing/windows">
+    Learn about Windows code signing
+  </Card>
+  <Card title="Publishing" icon="upload" href="/distribution/publishing">
+    Publish your signed app to distribution channels
+  </Card>
+</CardGroup>

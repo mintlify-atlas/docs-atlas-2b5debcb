@@ -1,0 +1,77 @@
+---
+title: Loading App Dependencies Manually
+description: Learn how to manually load app dependencies during development when using the two package.json structure
+---
+
+<Warning>
+This approach must be used only in development environment. In the release version of your application, the `app` directory should be self-contained with all used files.
+</Warning>
+
+## Problem
+
+When using the [two package.json structure](/guides/advanced/two-package-structure), if your app runs the main process (executed by Electron) outside the `/app` folder during development, you may need to load the `/app` dependencies manually.
+
+The app dependencies are placed at `/app/node_modules`, and your main process running in a different directory will not have access to that directory by default.
+
+## Solution
+
+Instead of duplicating the app dependencies in the development `package.json`, you can make the Electron main process load the app dependencies manually.
+
+### Implementation
+
+Here's how to load app dependencies manually in your main process:
+
+```js
+// given this file is: /src/browser/main.js
+
+const path = require('path')
+const devMode = (process.argv || []).indexOf('--dev') !== -1
+
+// load the app dependencies in dev mode
+if (devMode) {
+  const PATH_APP_NODE_MODULES = path.join(__dirname, '..', '..', 'app', 'node_modules')
+  const Module = require('module')
+  
+  // for electron 16 or lower
+  Module.globalPaths.push(PATH_APP_NODE_MODULES)
+  
+  // for electron 17 or higher
+  const nodeModulePaths = Module._nodeModulePaths
+  Module._nodeModulePaths = (from) =>
+    nodeModulePaths(from).concat([PATH_APP_NODE_MODULES])
+}
+```
+
+### How It Works
+
+1. **Detect development mode** - The code checks for a `--dev` flag in the command line arguments
+2. **Construct path** - Creates the path to `/app/node_modules` relative to the current file
+3. **Modify module resolution** - Adds the app's `node_modules` directory to Node's module search paths
+
+### Version Compatibility
+
+- **Electron 16 or lower** - Use `Module.globalPaths.push(PATH_APP_NODE_MODULES)`
+- **Electron 17 or higher** - Override `Module._nodeModulePaths` to include the app's node_modules path
+
+## Example Usage
+
+You can launch your app in development mode with the `--dev` flag:
+
+```bash
+electron . --dev
+```
+
+Or add it to your package.json scripts:
+
+```json
+{
+  "scripts": {
+    "dev": "electron . --dev",
+    "start": "electron ."
+  }
+}
+```
+
+## Related
+
+- [Two package.json Structure](/guides/advanced/two-package-structure)

@@ -1,0 +1,423 @@
+---
+title: Publishing
+description: Publish your Electron app to GitHub Releases, S3, and other platforms
+---
+
+The `publish` configuration in electron-builder controls how artifacts and update info files are published for [auto-update](/distribution/auto-update). Publishing can be configured for multiple providers simultaneously.
+
+## Configuration
+
+The `publish` key accepts:
+- `String`: Provider name (e.g., `"github"`, `"s3"`, `"spaces"`)
+- `Object`: Provider configuration with options
+- `Array<Object | String>`: Multiple providers
+
+<Note>
+  Order matters! The first item in the array will be used as the default auto-update server.
+</Note>
+
+You can specify `publish` configuration in:
+- Top-level configuration
+- Platform-specific configuration (`mac`, `linux`, `win`)
+- Target-specific configuration (e.g., `nsis`)
+
+### Auto-Detection
+
+electron-builder automatically detects publish providers based on environment variables:
+
+- If `GH_TOKEN` or `GITHUB_TOKEN` is defined → defaults to `[{provider: "github"}]`
+- If `KEYGEN_TOKEN` is defined (and GitHub tokens are not) → defaults to `[{provider: "keygen"}]`
+- If `GITHUB_RELEASE_TOKEN` is defined → used instead of `GH_TOKEN`/`GITHUB_TOKEN` for publishing
+
+<Warning>
+  **Deprecation Notice: Implicit Publishing**
+  
+  electron-builder currently auto-detects when to publish based on CI environment conditions:
+  - Running via `npm run release` → publishes always
+  - Git tag detected in CI → publishes on tag
+  - CI environment detected → publishes to draft releases
+  
+  **This implicit publishing behavior is deprecated and will be disabled in electron-builder v27.**
+  
+  To prepare for this change, explicitly specify your publish intent using the `--publish` CLI flag (e.g., `--publish always`, `--publish onTag`) or set the `publish` configuration in your `package.json` or `electron-builder.yml`.
+</Warning>
+
+## Multiple Publishers
+
+You can publish to multiple providers. The first provider will be used as the default auto-update server:
+
+<CodeGroup>
+```json package.json
+{
+  "build": {
+    "win": {
+      "publish": ["github", "bitbucket"]
+    }
+  }
+}
+```
+
+```yaml electron-builder.yml
+win:
+  publish:
+    # Object provider with additional options
+    - provider: github
+      protocol: https
+    # String provider with default options
+    - bitbucket
+```
+</CodeGroup>
+
+You can also configure publishing via CLI arguments:
+
+```bash
+electron-builder -c.snap.publish=github
+```
+
+## How to Publish
+
+The `--publish` CLI flag controls when to publish:
+
+| Value | Description |
+|-------|-------------|
+| `onTag` | Publish only on tag push |
+| `onTagOrDraft` | Publish on tag push or if draft release exists |
+| `always` | Always publish |
+| `never` | Never publish |
+
+```bash
+electron-builder --publish always
+```
+
+### Automatic Publishing Rules
+
+Instead of explicitly specifying `--publish`, electron-builder follows these automatic rules:
+
+1. **CI server detected** → `onTagOrDraft`
+2. **Tag pushed in CI** → `onTag` (release drafted if doesn't exist, artifacts published only on tag push)
+3. **npm script named `release`** → `always`
+
+<CodeGroup>
+```json package.json
+{
+  "scripts": {
+    "release": "electron-builder"
+  }
+}
+```
+</CodeGroup>
+
+Running `npm run release` or `yarn release` will draft a release (if doesn't exist) and publish artifacts.
+
+## Publishing Workflows
+
+### GitHub Releases Workflow (Recommended)
+
+<Steps>
+  <Step title="Draft a new release">
+    [Draft a new release](https://help.github.com/articles/creating-releases/) on GitHub. Set the "Tag version" to your application's `package.json` version prefixed with `v`.
+    
+    Example: If your `package.json` version is `1.0`, set "Tag version" to `v1.0`.
+  </Step>
+  
+  <Step title="Push commits">
+    Push commits to your repository. Every CI build will update the artifacts attached to this draft release.
+  </Step>
+  
+  <Step title="Publish the release">
+    Once ready, publish the release. GitHub will tag the latest commit for you.
+  </Step>
+</Steps>
+
+<Note>
+  This workflow allows you to always have the latest artifacts, and the release can be published when ready.
+</Note>
+
+### Continuous Deployment on S3 and Non-GitHub Providers
+
+This workflow is modeled on Maven release handling:
+
+<Steps>
+  <Step title="Configure CI to publish on each commit">
+    ```json package.json
+    {
+      "scripts": {
+        "dist": "electron-builder --publish always"
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Use snapshot versions during development">
+    Set your `package.json` version to `1.9.0-snapshot` (or `1.9.0-master`). This will publish:
+    - `snapshot.yml` metadata file
+    - `something-snapshot.exe` build (and corresponding files for other platforms)
+  </Step>
+  
+  <Step title="Deploy production version">
+    When ready to deploy, change your version to `1.9.0` and push. This will produce:
+    - `latest.yml` metadata file
+    - `something.exe` build
+    
+    Tag this version in git for tracking.
+  </Step>
+  
+  <Step title="Revert to snapshot version">
+    Change the version back to a snapshot version (e.g., `1.10.0-snapshot`) and commit.
+  </Step>
+</Steps>
+
+## GitHub Repository Detection
+
+The GitHub repository is automatically detected from:
+
+1. `repository` field in `package.json`
+2. Environment variables:
+   - `TRAVIS_REPO_SLUG`
+   - `APPVEYOR_REPO_NAME`
+   - `CIRCLE_PROJECT_USERNAME`/`CIRCLE_PROJECT_REPONAME`
+3. `.git/config` origin URL
+
+## Publishers
+
+### GitHub
+
+Publish to GitHub Releases:
+
+```json
+{
+  "build": {
+    "publish": {
+      "provider": "github",
+      "owner": "your-username",
+      "repo": "your-repo"
+    }
+  }
+}
+```
+
+**Environment Variables:**
+- `GH_TOKEN` or `GITHUB_TOKEN`: GitHub personal access token
+- `GITHUB_RELEASE_TOKEN`: Optional separate token for publishing (allows read-only `GITHUB_TOKEN`)
+
+<Note>
+  For fine-grained personal access tokens, "Contents" permission with "Read and write" access is sufficient.
+</Note>
+
+### S3
+
+Publish to Amazon S3:
+
+```json
+{
+  "build": {
+    "publish": {
+      "provider": "s3",
+      "bucket": "your-bucket-name",
+      "region": "us-east-1"
+    }
+  }
+}
+```
+
+**Environment Variables:**
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+
+### DigitalOcean Spaces
+
+Publish to DigitalOcean Spaces:
+
+```json
+{
+  "build": {
+    "publish": {
+      "provider": "spaces",
+      "name": "your-space-name",
+      "region": "nyc3"
+    }
+  }
+}
+```
+
+**Environment Variables:**
+- `DO_KEY_ID`: DigitalOcean Spaces access key
+- `DO_SECRET_KEY`: DigitalOcean Spaces secret key
+
+### Keygen
+
+Publish to Keygen:
+
+```json
+{
+  "build": {
+    "publish": {
+      "provider": "keygen",
+      "account": "your-account-id",
+      "product": "your-product-id"
+    }
+  }
+}
+```
+
+**Environment Variables:**
+- `KEYGEN_TOKEN`: Keygen API token
+
+### Bitbucket
+
+Publish to Bitbucket:
+
+```json
+{
+  "build": {
+    "publish": {
+      "provider": "bitbucket",
+      "owner": "your-username",
+      "slug": "your-repo-slug"
+    }
+  }
+}
+```
+
+### Snap Store
+
+The `snap` target publishes to Snap Store by default:
+
+```json
+{
+  "build": {
+    "snap": {
+      "publish": "github"
+    }
+  }
+}
+```
+
+<Note>
+  To force publishing to a different provider, explicitly specify the publish configuration for `snap`.
+</Note>
+
+### Generic Server (BYO)
+
+Publish to your own generic HTTP(s) server:
+
+```json
+{
+  "build": {
+    "publish": {
+      "provider": "generic",
+      "url": "https://example.com/updates"
+    }
+  }
+}
+```
+
+<Warning>
+  When using a generic server, you must manually upload the built application and metadata files. electron-builder will generate the files but won't upload them.
+</Warning>
+
+## File Macros
+
+All publish options support [File Macros](https://www.electron.build/file-patterns#file-macros) for dynamic values:
+
+```json
+{
+  "build": {
+    "publish": {
+      "provider": "s3",
+      "bucket": "my-bucket",
+      "path": "/releases/${version}"
+    }
+  }
+}
+```
+
+## Generated Files
+
+electron-builder generates and uploads the following metadata files (except for `bintray` which doesn't require them):
+
+- **Windows**: `latest.yml`
+- **macOS**: `latest-mac.yml`
+- **Linux**: `latest-linux.yml`
+
+These files contain:
+- Version information
+- File paths
+- SHA-512 checksums
+- Optional staging percentage for rollouts
+
+Example `latest.yml`:
+
+```yaml
+version: 1.0.0
+path: MyApp Setup 1.0.0.exe
+sha512: Dj51I0q8aPQ3ioaz9LMqGYujAYRbDNblAQbodDRXAMxmY6hsHqEl3F6SvhfJj5oPhcqdX1ldsgEvfMNXGUXBIw==
+releaseDate: '2024-03-15T10:30:00.000Z'
+```
+
+## CI Configuration Examples
+
+### GitHub Actions
+
+```yaml .github/workflows/build.yml
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build and publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run release
+```
+
+### Travis CI
+
+```yaml .travis.yml
+language: node_js
+node_js:
+  - 18
+
+os:
+  - linux
+  - osx
+  - windows
+
+script:
+  - npm run build
+
+deploy:
+  provider: script
+  script: npm run release
+  skip_cleanup: true
+  on:
+    tags: true
+
+env:
+  global:
+    - secure: "encrypted-gh-token"
+```
+
+## Custom Publish Provider
+
+You can implement a [custom publish provider](https://github.com/electron-userland/electron-builder/issues/3261) if the built-in providers don't meet your needs.

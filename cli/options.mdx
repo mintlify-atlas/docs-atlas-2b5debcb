@@ -1,0 +1,240 @@
+---
+title: Command-Line Options
+description: electron-builder command-line options and flags
+---
+
+electron-builder provides extensive command-line options for controlling the build process.
+
+## Building Options
+
+### Platform Selection
+
+<ParamField path="--mac" type="array">
+  Build for macOS. Accepts target list.
+  
+  Aliases: `-m`, `-o`, `--macos`
+  
+  ```bash
+  electron-builder --mac
+  electron-builder --mac dmg zip
+  ```
+</ParamField>
+
+<ParamField path="--win" type="array">
+  Build for Windows. Accepts target list.
+  
+  Aliases: `-w`, `--windows`
+  
+  ```bash
+  electron-builder --win
+  electron-builder --win nsis portable
+  ```
+</ParamField>
+
+<ParamField path="--linux" type="array">
+  Build for Linux. Accepts target list.
+  
+  Aliases: `-l`
+  
+  ```bash
+  electron-builder --linux
+  electron-builder --linux deb rpm AppImage
+  ```
+</ParamField>
+
+### Architecture Options
+
+<ParamField path="--x64" type="boolean">
+  Build for x64 (64-bit) architecture.
+  
+  ```bash
+  electron-builder --win --x64
+  ```
+</ParamField>
+
+<ParamField path="--ia32" type="boolean">
+  Build for ia32 (32-bit) architecture.
+  
+  ```bash
+  electron-builder --win --ia32
+  ```
+</ParamField>
+
+<ParamField path="--armv7l" type="boolean">
+  Build for armv7l architecture.
+  
+  ```bash
+  electron-builder --linux --armv7l
+  ```
+</ParamField>
+
+<ParamField path="--arm64" type="boolean">
+  Build for arm64 architecture (Apple Silicon, ARM-based systems).
+  
+  ```bash
+  electron-builder --mac --arm64
+  ```
+</ParamField>
+
+<ParamField path="--universal" type="boolean">
+  Build universal binary for macOS (supports both Intel and Apple Silicon).
+  
+  ```bash
+  electron-builder --mac --universal
+  ```
+</ParamField>
+
+### Build Configuration
+
+<ParamField path="--dir" type="boolean">
+  Build unpacked directory instead of distributable packages. Useful for testing.
+  
+  ```bash
+  electron-builder --dir
+  ```
+</ParamField>
+
+<ParamField path="--config" type="string">
+  Path to an electron-builder config file. Defaults to `electron-builder.yml` (or `json`, `json5`, `js`, `ts`).
+  
+  Aliases: `-c`
+  
+  ```bash
+  electron-builder --config custom-config.json
+  ```
+  
+  See [Configuration](/configuration/configuration) for more details.
+</ParamField>
+
+<ParamField path="--projectDir" type="string">
+  Path to project directory. Defaults to current working directory.
+  
+  Aliases: `--project`
+  
+  ```bash
+  electron-builder --projectDir /path/to/project
+  ```
+</ParamField>
+
+<ParamField path="--prepackaged" type="string">
+  Path to prepackaged app directory (to pack in a distributable format).
+  
+  Aliases: `--pd`
+  
+  ```bash
+  electron-builder --prepackaged /path/to/app
+  ```
+</ParamField>
+
+## Publishing Options
+
+<ParamField path="--publish" type="string">
+  When to publish artifacts. See [Publishing](/publish/publish) for more details.
+  
+  Aliases: `-p`
+  
+  **Choices:**
+  - `onTag` - Publish only on tagged releases
+  - `onTagOrDraft` - Publish on tagged releases or drafts
+  - `always` - Always publish
+  - `never` - Never publish
+  
+  ```bash
+  electron-builder --publish always
+  electron-builder -p onTag
+  ```
+</ParamField>
+
+## Configuration Overrides
+
+You can override configuration values using dot notation:
+
+```bash
+# Set package.json property `foo` to `bar`
+electron-builder -c.extraMetadata.foo=bar
+
+# Configure NSIS unicode option
+electron-builder --config.nsis.unicode=false
+
+# Set application ID
+electron-builder -c.appId=com.example.myapp
+```
+
+## Common Examples
+
+### Multi-platform builds
+
+```bash
+# Build for all platforms
+electron-builder -mwl
+
+# Build for macOS and Windows only
+electron-builder -mw
+```
+
+### Platform-specific targets
+
+```bash
+# Build specific Linux targets
+electron-builder --linux deb tar.xz
+
+# Build NSIS installer for Windows
+electron-builder --win nsis
+
+# Build DMG and ZIP for macOS
+electron-builder --mac dmg zip
+```
+
+### Architecture combinations
+
+```bash
+# Build for both x64 and ia32
+electron-builder --win --x64 --ia32
+
+# Build ARM64 and x64 for macOS
+electron-builder --mac --arm64 --x64
+```
+
+### Target with specific architecture
+
+```bash
+# Build 32-bit NSIS installer
+electron-builder --windows nsis:ia32
+
+# Build 64-bit AppImage
+electron-builder --linux AppImage:x64
+```
+
+## Other Options
+
+<ParamField path="--help" type="boolean">
+  Show help information.
+  
+  ```bash
+  electron-builder --help
+  ```
+</ParamField>
+
+<ParamField path="--version" type="boolean">
+  Show version number.
+  
+  ```bash
+  electron-builder --version
+  ```
+</ParamField>
+
+## Default Targets
+
+Without target configuration, electron-builder builds for the current platform and architecture using default targets:
+
+- **macOS**: DMG and ZIP for Squirrel.Mac
+- **Windows**: NSIS
+- **Linux**:
+  - If building on Windows or macOS: Snap and AppImage for x64
+  - If building on Linux: Snap and AppImage for current architecture
+
+## Environment Variables
+
+electron-builder respects various environment variables. You can also use an `electron-builder.env` file in your project root to set environment-specific configuration.
+
+For more information, see the [Configuration](/configuration/configuration) documentation.

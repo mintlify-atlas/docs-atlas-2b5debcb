@@ -1,0 +1,63 @@
+---
+title: AppImage
+description: Configuration options for building AppImage packages with electron-builder
+---
+
+The top-level `appImage` key contains set of options instructing electron-builder on how it should build [AppImage](https://appimage.org/).
+
+<Info>
+  **Desktop Integration**
+  
+  Since electron-builder 21 desktop integration is not a part of produced AppImage file. [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) is the recommended way to integrate AppImages.
+</Info>
+
+## Configuration
+
+<ParamField path="license" type="string">
+  The path to EULA license file. Defaults to `license.txt` or `eula.txt` (or uppercase variants). Only plain text is supported.
+</ParamField>
+
+<ParamField path="synopsis" type="string">
+  The [short description](https://www.debian.org/doc/debian-policy/ch-controlfields.html#s-f-Description).
+</ParamField>
+
+<ParamField path="description" type="string">
+  As [description](/configuration#description) from application package.json, but allows you to specify different for Linux.
+</ParamField>
+
+<ParamField path="category" type="string">
+  The [application category](https://specifications.freedesktop.org/menu-spec/latest/apa.html#main-category-registry).
+</ParamField>
+
+<ParamField path="mimeTypes" type="string[]">
+  The mime types in addition to specified in the file associations. Use it if you don't want to register a new mime type, but reuse existing.
+</ParamField>
+
+<ParamField path="desktop" type="LinuxDesktopFile">
+  The [Desktop file](https://developer.gnome.org/documentation/guidelines/maintainer/integrating.html#desktop-files)
+
+  <Expandable title="properties">
+    <ParamField path="desktop.entry" type="Record<string, string>">
+      `[Desktop Entry]` metadata entries (name to value). Overwrites default values calculated by electron-builder.
+
+      Example Spec: [freedesktop.org Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/latest/example.html)
+    </ParamField>
+
+    <ParamField path="desktop.desktopActions" type="Record<string, any>">
+      `[Desktop Actions <ActionName>]` metadata entries (name to value).
+
+      ```js
+      desktopActions: {
+        NewWindow: {
+          Name: 'New Window',
+          Exec: 'app --new-window',
+        }
+      }
+      ```
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="executableArgs" type="string[]">
+  The executable parameters. Pass to executableName
+</ParamField>

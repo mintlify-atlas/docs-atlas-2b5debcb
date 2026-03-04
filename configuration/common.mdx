@@ -1,0 +1,619 @@
+---
+title: Common Configuration
+description: Common configuration options shared across all platforms in electron-builder
+---
+
+electron-builder configuration can be defined in multiple ways:
+
+- In the `package.json` file using the `build` key:
+  ```json
+  "build": {
+    "appId": "com.example.app"
+  }
+  ```
+
+- Through the `--config <path/to/yml-or-json5-or-toml-or-js>` option (defaults to `electron-builder.yml`):
+  ```yaml
+  appId: "com.example.app"
+  ```
+
+<Note>
+Supported formats: `json`, `json5`, `toml`, `yaml`, and `js`/`ts` (exported configuration or function)
+</Note>
+
+<Warning>
+If using a `js` file, do not name it `electron-builder.js` as it will conflict with the electron-builder package name.
+</Warning>
+
+## Configuration Methods
+
+### package.json Configuration
+
+```json
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "build": {
+    "appId": "com.example.myapp",
+    "productName": "My Application",
+    "copyright": "Copyright © 2024 ${author}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    }
+  }
+}
+```
+
+### electron-builder.yml Configuration
+
+```yaml
+appId: com.example.myapp
+productName: My Application
+copyright: "Copyright © 2024 ${author}"
+directories:
+  output: dist
+  buildResources: build
+mac:
+  category: public.app-category.productivity
+win:
+  target: nsis
+linux:
+  target: AppImage
+```
+
+### JavaScript Configuration
+
+```javascript
+// electron-builder.config.js
+module.exports = {
+  appId: "com.example.myapp",
+  productName: "My Application",
+  directories: {
+    output: "dist"
+  },
+  mac: {
+    category: "public.app-category.productivity"
+  }
+}
+```
+
+## Environment Variables
+
+You can use an `electron-builder.env` file in the current directory for environment variables. This is supported only for CLI usage.
+
+## Common Configuration Options
+
+<ParamField path="appId" type="string" default="com.electron.${name}">
+  The application id. Used as:
+  - [CFBundleIdentifier](https://developer.apple.com/library/ios/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html#//apple_ref/doc/uid/20001431-102070) for macOS
+  - [Application User Model ID](https://msdn.microsoft.com/en-us/library/windows/desktop/dd378459(v=vs.85).aspx) for Windows (NSIS target only)
+  
+  It is strongly recommended that an explicit ID is set.
+
+  ```json
+  {
+    "build": {
+      "appId": "com.example.myapp"
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="productName" type="string">
+  The product name for your executable. Can contain spaces and special characters not allowed in the `name` property.
+  
+  If not specified in `build` configuration, the top-level `productName` from `package.json` is used. If that's not specified, the `name` property is used.
+
+  ```json
+  {
+    "build": {
+      "productName": "My Awesome Application"
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="copyright" type="string" default="Copyright © year ${author}">
+  The human-readable copyright line for the app.
+
+  ```json
+  {
+    "build": {
+      "copyright": "Copyright © 2024 My Company Inc."
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="directories" type="object">
+  Directories for build resources and output.
+
+  <ParamField path="directories.buildResources" type="string" default="build">
+    The path to build resources (icons, background images, etc.).
+    
+    <Note>
+    Build resources are not packed into the app. If you need to use files at runtime (e.g., tray icon), include them explicitly using the `files` option.
+    </Note>
+
+    ```json
+    {
+      "build": {
+        "directories": {
+          "buildResources": "resources"
+        }
+      }
+    }
+    ```
+  </ParamField>
+
+  <ParamField path="directories.output" type="string" default="dist">
+    The output directory. Supports [file macros](/file-patterns#file-macros).
+
+    ```json
+    {
+      "build": {
+        "directories": {
+          "output": "release"
+        }
+      }
+    }
+    ```
+  </ParamField>
+
+  <ParamField path="directories.app" type="string">
+    The application directory containing the application package.json. Defaults to `app`, `www`, or working directory.
+
+    ```json
+    {
+      "build": {
+        "directories": {
+          "app": "src"
+        }
+      }
+    }
+    ```
+  </ParamField>
+</ParamField>
+
+<ParamField path="buildVersion" type="string">
+  The build version. Maps to:
+  - `CFBundleVersion` on macOS
+  - `FileVersion` metadata property on Windows
+  
+  Defaults to the `version` from package.json.
+  
+  If not defined but `buildNumber` is defined, it will be set to `version.buildNumber`.
+
+  ```json
+  {
+    "build": {
+      "buildVersion": "1.2.3.456"
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="buildNumber" type="string">
+  The build number. Maps to the `--iteration` flag for builds using FPM on Linux.
+  
+  If not defined, falls back to environment variables:
+  - `BUILD_NUMBER`
+  - `TRAVIS_BUILD_NUMBER`
+  - `APPVEYOR_BUILD_NUMBER`
+  - `CIRCLE_BUILD_NUM`
+  - `BUILD_BUILDNUMBER`
+  - `CI_PIPELINE_IID`
+
+  ```json
+  {
+    "build": {
+      "buildNumber": "456"
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="electronVersion" type="string">
+  The version of Electron you are packaging for. Defaults to the version of `electron`, `electron-prebuilt`, or `electron-prebuilt-compile` dependency.
+
+  ```json
+  {
+    "build": {
+      "electronVersion": "28.0.0"
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="extraMetadata" type="object">
+  Inject properties to `package.json`. Useful for setting version or other metadata dynamically.
+
+  ```json
+  {
+    "build": {
+      "extraMetadata": {
+        "version": "1.2.3",
+        "main": "app.js"
+      }
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="extends" type="string | string[]">
+  The name of a built-in configuration preset (currently only `react-cra` is supported) or paths to config files.
+  
+  Allows mixing configs from multiple files, properly combining `files` glob patterns.
+  
+  If `react-scripts` is in app dependencies, `react-cra` is set automatically. Set to `null` to disable.
+
+  ```json
+  {
+    "build": {
+      "extends": ["./base-config.json", "./platform-config.json"]
+    }
+  }
+  ```
+</ParamField>
+
+## Native Dependencies
+
+<ParamField path="buildDependenciesFromSource" type="boolean" default={false}>
+  Whether to build the application native dependencies from source.
+
+  ```json
+  {
+    "build": {
+      "buildDependenciesFromSource": true
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="nodeGypRebuild" type="boolean" default={false}>
+  Whether to execute `node-gyp rebuild` before starting to package the app.
+  
+  <Warning>
+  Don't use npm or `.npmrc` for configuring electron headers. Use `electron-builder node-gyp-rebuild` instead.
+  </Warning>
+
+  ```json
+  {
+    "build": {
+      "nodeGypRebuild": true
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="npmRebuild" type="boolean" default={true}>
+  Whether to [rebuild](https://docs.npmjs.com/cli/rebuild) native dependencies before starting to package the app.
+
+  ```json
+  {
+    "build": {
+      "npmRebuild": false
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="nativeRebuilder" type="string" default="sequential">
+  Use `legacy` app-builder binary for installing native dependencies, or `@electron/rebuild` in `sequential` or `parallel` compilation modes.
+  
+  Options: `legacy`, `sequential`, `parallel`
+
+  ```json
+  {
+    "build": {
+      "nativeRebuilder": "parallel"
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="npmArgs" type="string | string[]">
+  Additional command line arguments to use when installing app native dependencies.
+
+  ```json
+  {
+    "build": {
+      "npmArgs": ["--legacy-peer-deps"]
+    }
+  }
+  ```
+</ParamField>
+
+## Code Signing
+
+<ParamField path="forceCodeSigning" type="boolean" default={false}>
+  Whether to fail if the application is not signed (prevents unsigned app if code signing configuration is incorrect).
+
+  ```json
+  {
+    "build": {
+      "forceCodeSigning": true
+    }
+  }
+  ```
+</ParamField>
+
+## Advanced Options
+
+<ParamField path="electronDownload" type="object">
+  The [electron-download](https://github.com/electron-userland/electron-download#usage) options.
+
+  ```json
+  {
+    "build": {
+      "electronDownload": {
+        "mirror": "https://npmmirror.com/mirrors/electron/"
+      }
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="electronBranding" type="object">
+  The branding used by Electron's distributables. Needed if a fork has modified Electron's BRANDING.json file.
+
+  ```json
+  {
+    "build": {
+      "electronBranding": {
+        "projectName": "MyElectron"
+      }
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="downloadAlternateFFmpeg" type="boolean" default={false}>
+  Whether to download the alternate FFmpeg library from Electron's release assets and replace the default FFmpeg library prior to signing.
+
+  ```json
+  {
+    "build": {
+      "downloadAlternateFFmpeg": true
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="includePdb" type="boolean" default={false}>
+  Whether to include PDB files (Windows debugging symbols).
+
+  ```json
+  {
+    "build": {
+      "includePdb": true
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="removePackageScripts" type="boolean" default={true}>
+  Whether to remove `scripts` field from `package.json` files.
+
+  ```json
+  {
+    "build": {
+      "removePackageScripts": false
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="removePackageKeywords" type="boolean" default={true}>
+  Whether to remove `keywords` field from `package.json` files.
+
+  ```json
+  {
+    "build": {
+      "removePackageKeywords": false
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="disableSanityCheckAsar" type="boolean" default={false}>
+  Whether to disable sanity check of asar package. Useful for custom Electron forks that implement their own encrypted integrity validation.
+
+  ```json
+  {
+    "build": {
+      "disableSanityCheckAsar": true
+    }
+  }
+  ```
+</ParamField>
+
+## Electron Fuses
+
+<ParamField path="electronFuses" type="object">
+  Options to pass to [@electron/fuses](https://github.com/electron/fuses). Fuses are security and feature toggles in Electron.
+
+  <ParamField path="electronFuses.runAsNode" type="boolean">
+    Toggles whether the `ELECTRON_RUN_AS_NODE` environment variable is respected.
+    
+    <Note>
+    If disabled, `process.fork` won't work as expected. Use [Utility Processes](https://github.com/electron/electron/blob/main/docs/api/utility-process.md) instead.
+    </Note>
+  </ParamField>
+
+  <ParamField path="electronFuses.enableCookieEncryption" type="boolean">
+    Toggles whether the cookie store on disk is encrypted using OS level cryptography keys.
+    
+    <Warning>
+    This is a one-way transition. Enabling it encrypts unencrypted cookies, but disabling it afterward will corrupt the cookie store.
+    </Warning>
+  </ParamField>
+
+  <ParamField path="electronFuses.enableNodeOptionsEnvironmentVariable" type="boolean">
+    Toggles whether the `NODE_OPTIONS` and `NODE_EXTRA_CA_CERTS` environment variables are respected.
+  </ParamField>
+
+  <ParamField path="electronFuses.enableNodeCliInspectArguments" type="boolean">
+    Toggles whether the `--inspect`, `--inspect-brk`, etc. flags are respected.
+  </ParamField>
+
+  <ParamField path="electronFuses.enableEmbeddedAsarIntegrityValidation" type="boolean">
+    Toggles validation of the `app.asar` file content when loaded.
+    
+    Supported on:
+    - macOS (Electron >= 16.0.0)
+    - Windows (Electron >= 30.0.0)
+    
+    See [Asar Integrity documentation](https://github.com/electron/electron/blob/main/docs/tutorial/asar-integrity.md).
+  </ParamField>
+
+  <ParamField path="electronFuses.onlyLoadAppFromAsar" type="boolean">
+    Changes the search order to only load from `app.asar`. Ensures only validated code is loaded when combined with `enableEmbeddedAsarIntegrityValidation`.
+  </ParamField>
+
+  <ParamField path="electronFuses.loadBrowserProcessSpecificV8Snapshot" type="boolean">
+    Changes which V8 snapshot file is used for the browser process (`browser_v8_context_snapshot.bin`).
+  </ParamField>
+
+  <ParamField path="electronFuses.grantFileProtocolExtraPrivileges" type="boolean">
+    Toggles extra privileges for pages loaded from the `file://` protocol.
+    
+    <Warning>
+    Consider serving local files from custom protocols instead. See [security best practices](https://github.com/electron/electron/blob/main/docs/tutorial/security.md#18-avoid-usage-of-the-file-protocol-and-prefer-usage-of-custom-protocols).
+    </Warning>
+  </ParamField>
+
+  ```json
+  {
+    "build": {
+      "electronFuses": {
+        "runAsNode": false,
+        "enableCookieEncryption": true,
+        "enableNodeOptionsEnvironmentVariable": false,
+        "enableNodeCliInspectArguments": false,
+        "enableEmbeddedAsarIntegrityValidation": true,
+        "onlyLoadAppFromAsar": true
+      }
+    }
+  }
+  ```
+</ParamField>
+
+## Toolset Configuration
+
+<ParamField path="toolsets" type="object">
+  Configuration of toolsets utilized by electron-builder.
+
+  <ParamField path="toolsets.winCodeSign" type="string" default="0.0.0">
+    `win-codesign` version to use for signing Windows artifacts.
+    
+    Options:
+    - `0.0.0` (stable, winCodeSign)
+    - `1.0.0` (beta, Windows Kits 10.0.26100.0)
+    - `1.1.0` (beta)
+    
+    See [releases](https://github.com/electron-userland/electron-builder-binaries/releases?q=win-codesign).
+  </ParamField>
+
+  <ParamField path="toolsets.appimage" type="string" default="0.0.0">
+    `appimage` bundle version to use for AppImage packaging and runtime.
+    
+    Options:
+    - `0.0.0` (legacy toolset)
+    - `1.0.2` (beta, Runtime 20251108)
+    
+    See [releases](https://github.com/electron-userland/electron-builder-binaries/releases?q=appimage).
+  </ParamField>
+
+  ```json
+  {
+    "build": {
+      "toolsets": {
+        "winCodeSign": "1.1.0",
+        "appimage": "1.0.2"
+      }
+    }
+  }
+  ```
+</ParamField>
+
+## Concurrency
+
+<ParamField path="concurrency" type="object">
+  Experimental configuration for concurrent builds.
+
+  <ParamField path="concurrency.jobs" type="number" default={1}>
+    The maximum number of concurrent jobs to run.
+
+    ```json
+    {
+      "build": {
+        "concurrency": {
+          "jobs": 4
+        }
+      }
+    }
+    ```
+  </ParamField>
+</ParamField>
+
+## Framework-Specific Options
+
+### Proton Native
+
+To package [Proton Native](https://proton-native.js.org/) apps, set `nodeVersion` to `current` or a specific NodeJS version.
+
+<Note>
+Currently, only macOS and Linux are supported for Proton Native.
+</Note>
+
+```json
+{
+  "build": {
+    "nodeVersion": "current",
+    "framework": "proton"
+  }
+}
+```
+
+<ParamField path="framework" type="string" default="electron">
+  The framework name. Options: `electron`, `proton`, `libui`.
+</ParamField>
+
+<ParamField path="nodeVersion" type="string">
+  For libui-based frameworks only. The version of NodeJS you are packaging for. Set to `current` to use the Node.js version you're running.
+</ParamField>
+
+<ParamField path="launchUiVersion" type="boolean | string">
+  For libui-based frameworks only. The version of LaunchUI you are packaging for (Windows only).
+</ParamField>
+
+## Build Version Management
+
+`CFBundleVersion` (macOS) and `FileVersion` (Windows) will be set automatically to `version.build_number` on CI servers:
+
+- Travis CI
+- AppVeyor
+- CircleCI
+- Bamboo
+- GitLab CI
+- GitHub Actions
+
+## Overridable Options
+
+Many options can be overridden per platform using the top-level `mac`, `linux`, and `win` keys. See:
+
+- [macOS Configuration](/configuration/mac)
+- [Windows Configuration](/configuration/win)
+- [Linux Configuration](/configuration/linux)
+
+## Artifact File Name Template
+
+The `${ext}` macro is supported in addition to [file macros](/file-patterns#file-macros) for artifact naming.
+
+## Notes
+
+<Note>
+Most options accept `null` to explicitly unset a value. For example, to use the default OS volume icon instead of the application icon for DMG, set `dmg.icon` to `null`.
+</Note>

@@ -1,0 +1,454 @@
+---
+title: Building for Windows
+description: Build NSIS, MSI, AppX, portable, and Squirrel installers for Windows distribution
+---
+
+The top-level `win` configuration contains options for building Windows targets. These options apply to all Windows target types including NSIS, MSI, AppX, portable, and Squirrel.
+
+## Windows Targets Overview
+
+<CardGroup cols={3}>
+  <Card title="NSIS" icon="window" href="#nsis-installer">
+    Default Windows installer with auto-updates
+  </Card>
+  <Card title="Portable" icon="suitcase" href="#portable-app">
+    Standalone executable without installation
+  </Card>
+  <Card title="MSI" icon="box" href="#other-targets">
+    Windows Installer package format
+  </Card>
+</CardGroup>
+
+## Base Windows Configuration
+
+The `win` key in your electron-builder configuration applies to all Windows targets:
+
+```json
+{
+  "build": {
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "build/icon.ico",
+      "publisherName": "Your Company, Inc.",
+      "signingHashAlgorithms": ["sha256"],
+      "signDlls": true
+    }
+  }
+}
+```
+
+<Note>
+For detailed Windows configuration options, see the [WindowsConfiguration](/api/interfaces/WindowsConfiguration) interface reference.
+</Note>
+
+## NSIS Installer
+
+NSIS is the default and recommended target for Windows. It supports automatic updates, Unicode, and can build both 32-bit and 64-bit installers.
+
+### Basic NSIS Configuration
+
+<Tabs>
+  <Tab title="JSON">
+    ```json
+    {
+      "build": {
+        "nsis": {
+          "oneClick": true,
+          "perMachine": false,
+          "allowToChangeInstallationDirectory": false,
+          "deleteAppDataOnUninstall": false,
+          "createDesktopShortcut": true,
+          "createStartMenuShortcut": true,
+          "shortcutName": "My App"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="YAML">
+    ```yaml
+    build:
+      nsis:
+        oneClick: true
+        perMachine: false
+        allowToChangeInstallationDirectory: false
+        deleteAppDataOnUninstall: false
+        createDesktopShortcut: true
+        createStartMenuShortcut: true
+        shortcutName: My App
+    ```
+  </Tab>
+</Tabs>
+
+### Assisted Installer (Non One-Click)
+
+For more control over the installation process, use assisted installer mode:
+
+<Tabs>
+  <Tab title="JSON">
+    ```json
+    {
+      "build": {
+        "nsis": {
+          "oneClick": false,
+          "allowToChangeInstallationDirectory": true,
+          "allowElevation": true,
+          "installerIcon": "build/installerIcon.ico",
+          "uninstallerIcon": "build/uninstallerIcon.ico",
+          "installerHeaderIcon": "build/installerHeaderIcon.ico"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="YAML">
+    ```yaml
+    build:
+      nsis:
+        oneClick: false
+        allowToChangeInstallationDirectory: true
+        allowElevation: true
+        installerIcon: build/installerIcon.ico
+        uninstallerIcon: build/uninstallerIcon.ico
+        installerHeaderIcon: build/installerHeaderIcon.ico
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+Assisted installer allows users to choose between per-user and per-machine installation, and select the installation directory.
+</Note>
+
+### 32-bit + 64-bit Support
+
+Building for both architectures creates a single universal installer:
+
+```bash
+electron-builder --win --x64 --ia32
+```
+
+The installer automatically detects the system architecture and installs the appropriate version.
+
+### Web Installer
+
+Web installer reduces download size by fetching the package files on-demand:
+
+```json
+{
+  "build": {
+    "win": {
+      "target": "nsis-web"
+    },
+    "nsisWeb": {
+      "oneClick": true,
+      "perMachine": false
+    }
+  }
+}
+```
+
+<Note>
+Web installer automatically detects OS architecture and downloads the corresponding package. If download fails (antivirus, offline), users can download the package file manually and place it in the same directory as the installer.
+</Note>
+
+### Custom NSIS Script
+
+Customize the NSIS installer by creating `build/installer.nsh` with custom macros:
+
+```nsis
+!macro customHeader
+  !system "echo '' > ${BUILD_RESOURCES_DIR}/customHeader"
+!macroend
+
+!macro preInit
+  ; This macro is inserted at the beginning of the NSIS .OnInit callback
+  !system "echo '' > ${BUILD_RESOURCES_DIR}/preInit"
+!macroend
+
+!macro customInit
+  !system "echo '' > ${BUILD_RESOURCES_DIR}/customInit"
+!macroend
+
+!macro customInstall
+  !system "echo '' > ${BUILD_RESOURCES_DIR}/customInstall"
+!macroend
+
+!macro customInstallMode
+  # set $isForceMachineInstall or $isForceCurrentInstall
+  # to enforce one or the other modes.
+!macroend
+
+!macro customWelcomePage
+  # Welcome Page is not added by default for installer.
+  !insertMacro MUI_PAGE_WELCOME
+!macroend
+
+!macro customUnWelcomePage
+  !define MUI_WELCOMEPAGE_TITLE "custom title for uninstaller welcome page"
+  !define MUI_WELCOMEPAGE_TEXT "custom text for uninstaller welcome page $\r$\n more"
+  !insertmacro MUI_UNPAGE_WELCOME
+!macroend
+```
+
+#### Available Custom Macros
+
+- `customHeader` - Add custom NSIS header content
+- `preInit` - Execute at the beginning of .OnInit callback
+- `customInit` - Custom initialization code
+- `customUnInit` - Custom uninstaller initialization
+- `customInstall` - Custom installation steps
+- `customUnInstall` - Custom uninstallation steps
+- `customRemoveFiles` - Custom file removal
+- `customInstallMode` - Force installation mode
+- `customWelcomePage` - Customize welcome page
+- `customUnWelcomePage` - Customize uninstaller welcome page
+- `customUnInstallSection` - Add custom uninstaller sections
+
+#### Including Additional Resources
+
+To include additional resources like scripts or MSI installers:
+
+```nsis
+!macro customInstall
+  File /oname=$PLUGINSDIR\extramsi.msi "${BUILD_RESOURCES_DIR}\extramsi.msi"
+  ExecWait '"msiexec" /i "$PLUGINSDIR\extramsi.msi" /passive'
+!macroend
+```
+
+#### Detect Update vs Fresh Install
+
+```nsis
+${ifNot} ${isUpdated}
+  # Code runs only on fresh install, not on update
+${endIf}
+```
+
+<Note>
+Available variables: `BUILD_RESOURCES_DIR`, `PROJECT_DIR`, `ONE_CLICK`, and all other electron-builder flags. The `build` directory is added as `addincludedir` and `build/x86-unicode`, `build/x86-ansi` as `addplugindir`.
+</Note>
+
+### GUID vs Application Name
+
+Windows uses registry keys for install/uninstall info. electron-builder automatically generates a name-based UUID v5 from your `appId` or `name`.
+
+<Warning>
+**Do not change `appId`** once your application is in use. The product name or description can be safely changed, but changing `appId` will cause issues with updates and uninstallation.
+</Warning>
+
+You can explicitly set a GUID using `nsis.guid`, but using `appId` is recommended:
+
+```json
+{
+  "build": {
+    "appId": "com.company.app",
+    "productName": "My Application"
+  }
+}
+```
+
+<Note>
+Set the Application User Model ID (AUMID) in your main process for proper Windows notifications:
+
+```javascript
+app.setAppUserModelId(appId)
+```
+</Note>
+
+For complete NSIS configuration options, see the [NsisOptions](/api/interfaces/NsisOptions) interface reference.
+
+## Portable App
+
+Build a portable executable that doesn't require installation:
+
+```bash
+electron-builder --win portable
+```
+
+Or in configuration:
+
+```json
+{
+  "build": {
+    "win": {
+      "target": "portable"
+    }
+  }
+}
+```
+
+### Portable Environment Variables
+
+These environment variables are available in portable apps:
+
+- `PORTABLE_EXECUTABLE_FILE` - Path to the portable executable
+- `PORTABLE_EXECUTABLE_DIR` - Directory where the portable executable is located
+- `PORTABLE_EXECUTABLE_APP_FILENAME` - Sanitized app name for use in file paths
+
+```javascript
+const appPath = process.env.PORTABLE_EXECUTABLE_DIR
+const appFile = process.env.PORTABLE_EXECUTABLE_FILE
+const appName = process.env.PORTABLE_EXECUTABLE_APP_FILENAME
+```
+
+## Code Signing
+
+### Delegated Code Signing
+
+Use a custom signing function for delegated code signing:
+
+```json
+{
+  "build": {
+    "win": {
+      "signtoolOptions": {
+        "sign": "./customSign.js"
+      }
+    }
+  }
+}
+```
+
+Create `customSign.js` in your project root:
+
+```javascript
+exports.default = async function(configuration) {
+  // your custom code signing logic
+  console.log('Signing:', configuration.path)
+}
+```
+
+<Note>
+The sign function is called multiple times for different files. See [why sign.js is called 8 times](https://github.com/electron-userland/electron-builder/issues/3995) for details.
+</Note>
+
+### Custom Signature Verification
+
+For NSIS updater with custom signature verification:
+
+```javascript
+import { NsisUpdater } from "electron-updater"
+import { verifySignatureByPublishName } from "win-verify-signature"
+
+export default class AppUpdater {
+  constructor() {
+    const options = {
+      requestHeaders: {
+        // Any request headers to include here
+      },
+      provider: 'generic',
+      url: 'https://example.com/auto-updates'
+    }
+
+    const autoUpdater = new NsisUpdater(options)
+    autoUpdater.verifyUpdateCodeSignature = (publisherName, path) => {
+      const result = verifySignatureByPublishName(path, publisherName)
+      if (result.signed) return Promise.resolve(null)
+      return Promise.resolve(result.message)
+    }
+    autoUpdater.addAuthHeader(`Bearer ${token}`)
+    autoUpdater.checkForUpdatesAndNotify()
+  }
+}
+```
+
+## Other Targets
+
+electron-builder supports additional Windows targets:
+
+<Tabs>
+  <Tab title="MSI">
+    Windows Installer package format:
+    ```json
+    {
+      "build": {
+        "win": {
+          "target": "msi"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="AppX">
+    Universal Windows Platform package:
+    ```json
+    {
+      "build": {
+        "win": {
+          "target": "appx"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Squirrel">
+    Squirrel.Windows installer:
+    ```json
+    {
+      "build": {
+        "win": {
+          "target": "squirrel"
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Development Environment Setup
+
+### Parallels Windows 10 VM
+
+For building AppX on macOS, Parallels VM is recommended:
+
+<Steps>
+  <Step title="Download VM">
+    1. Open Parallels Desktop
+    2. File → New
+    3. Select "Modern.IE" in "Free Systems"
+    4. Select "Microsoft Edge on Windows 10"
+  </Step>
+  <Step title="Configure">
+    **Important:** Disable "Share Mac user folders with Windows" feature. Do not run installers from shared folders.
+  </Step>
+  <Step title="Build">
+    The VM will be automatically detected and used for AppX builds. It will start on-demand and suspend after the build.
+  </Step>
+</Steps>
+
+<Note>
+No Windows 10 license required - free VMs are provided and expire after 90 days, but no additional setup is needed after expiration.
+</Note>
+
+### VirtualBox Windows 10 VM
+
+Alternatively, use free VirtualBox:
+
+<Steps>
+  <Step title="Download">
+    1. Visit [Download virtual machines](https://developer.microsoft.com/en-us/microsoft-edge/tools/vms/)
+    2. Select "MSEdge on Win10 (x64) Stable"
+    3. Select "VirtualBox" platform
+    4. Download and follow installation instructions
+  </Step>
+  <Step title="Login">
+    VM password: `Passw0rd!`
+  </Step>
+</Steps>
+
+<Warning>
+VirtualBox is not automatically supported by electron-builder. You need to set up the build environment manually on Windows.
+</Warning>
+
+## Building Multiple Targets
+
+```bash
+# Build specific targets
+electron-builder --win nsis
+electron-builder --win portable
+
+# Build multiple targets
+electron-builder --win nsis portable msi
+
+# Build for multiple architectures
+electron-builder --win --x64 --ia32
+```

@@ -1,0 +1,495 @@
+---
+title: Application Icons
+description: Icon requirements and setup for all platforms in electron-builder
+---
+
+Application icons are essential for giving your Electron app a professional appearance across all platforms. electron-builder automatically handles icon generation and conversion for different platforms.
+
+<Note>
+Recommended tools: [Icon Composer](https://developer.apple.com/icon-composer/), [AppIcon Generator](http://www.tweaknow.com/appicongenerator.php), [MakeAppIcon](https://makeappicon.com/)
+</Note>
+
+## Icon File Location
+
+All icon files should be placed in your [buildResources directory](/configuration/common#directories), which defaults to `build/`.
+
+```
+my-app/
+├── build/
+│   ├── icon.icns          # macOS (legacy)
+│   ├── icon.icon          # macOS (preferred)
+│   ├── icon.ico           # Windows
+│   ├── icon.png           # Fallback/Linux source
+│   ├── background.png     # macOS DMG background
+│   └── background@2x.png  # macOS DMG Retina background
+├── src/
+└── package.json
+```
+
+## macOS Icons
+
+### Icon Formats
+
+macOS supports multiple icon formats. electron-builder uses them in the following priority:
+
+1. **`.icon` (preferred)** - Apple Icon Composer asset
+2. **`.icns` (legacy)** - Traditional macOS icon format  
+3. **`.png` (fallback)** - Will be converted to `.icns`
+
+<ParamField path="icon.icon" type="file">
+  **Preferred format for modern macOS**
+  
+  If you set `mac.icon` to a `.icon` file, electron-builder compiles it into an asset catalog (`Assets.car`) and wires it via `CFBundleIconName`.
+  
+  <Note>
+  Requires Xcode 26+ (`actool` 26+) on macOS 15+
+  </Note>
+
+  ```json
+  {
+    "build": {
+      "mac": {
+        "icon": "build/icon.icon"
+      }
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="icon.icns" type="file">
+  **Legacy macOS icon format**
+  
+  If you set `mac.icon` to `.icns`, it is copied into the app bundle and referenced via `CFBundleIconFile`.
+  
+  **Minimum size:** 512x512 pixels
+  
+  ```json
+  {
+    "build": {
+      "mac": {
+        "icon": "build/icon.icns"
+      }
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="icon.png" type="file">
+  **Universal fallback format**
+  
+  If no `.icon` or `.icns` file is provided, electron-builder will use `icon.png` and convert it to the appropriate format.
+  
+  **Minimum size:** 512x512 pixels (1024x1024 recommended)
+  
+  ```json
+  {
+    "build": {
+      "mac": {
+        "icon": "build/icon.png"
+      }
+    }
+  }
+  ```
+</ParamField>
+
+### DMG Volume Icon
+
+<Warning>
+If you only provide `.icon` format, consider setting `dmg.icon` explicitly to an `.icns` file, as the DMG volume icon still requires `.icns` format.
+</Warning>
+
+```json
+{
+  "build": {
+    "mac": {
+      "icon": "build/icon.icon"
+    },
+    "dmg": {
+      "icon": "build/icon.icns"
+    }
+  }
+}
+```
+
+### DMG Background Images
+
+<ParamField path="background.png" type="file">
+  Background image for macOS DMG installer.
+  
+  Place in the buildResources directory (defaults to `build/`).
+  
+  **Recommended size:** 540x380 pixels
+</ParamField>
+
+<ParamField path="background@2x.png" type="file">
+  Retina (HiDPI) background image for macOS DMG installer.
+  
+  **Recommended size:** 1080x760 pixels (2x the standard background)
+</ParamField>
+
+```
+build/
+├── background.png      # 540x380
+└── background@2x.png   # 1080x760
+```
+
+### Example macOS Configuration
+
+```json
+{
+  "build": {
+    "appId": "com.example.app",
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity"
+    },
+    "dmg": {
+      "icon": "build/icon.icns",
+      "background": "build/background.png",
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    }
+  }
+}
+```
+
+## Windows Icons
+
+### Icon Format
+
+Windows applications use `.ico` format, which contains multiple icon sizes in a single file.
+
+<ParamField path="icon.ico" type="file">
+  Windows application icon. Should contain multiple sizes: 16x16, 32x32, 48x48, 64x64, 128x128, 256x256.
+  
+  **Minimum size:** 256x256 pixels
+  
+  If not provided, electron-builder will convert `icon.png` to `.ico` format.
+</ParamField>
+
+<ParamField path="icon.png" type="file">
+  If `icon.ico` is not provided, electron-builder will use `icon.png` and convert it to `.ico`.
+  
+  **Minimum size:** 256x256 pixels (512x512 recommended)
+</ParamField>
+
+### Icon Configuration
+
+```json
+{
+  "build": {
+    "appId": "com.example.app",
+    "win": {
+      "icon": "build/icon.ico",
+      "target": "nsis"
+    }
+  }
+}
+```
+
+### NSIS Installer Icons
+
+You can also customize the NSIS installer icons:
+
+```json
+{
+  "build": {
+    "win": {
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "installerIcon": "build/installer-icon.ico",
+      "uninstallerIcon": "build/uninstaller-icon.ico",
+      "installerHeaderIcon": "build/installer-header-icon.ico"
+    }
+  }
+}
+```
+
+### Creating ICO Files
+
+You can create `.ico` files from `.png` using various tools:
+
+- **ImageMagick:**
+  ```bash
+  convert icon.png -define icon:auto-resize=256,128,64,48,32,16 icon.ico
+  ```
+
+- **Online tools:** [ConvertICO](https://convertico.com/), [ICO Convert](https://icoconvert.com/)
+
+## Linux Icons
+
+### Icon Generation
+
+Linux icon sets are generated automatically based on:
+1. The macOS `.icns` file
+2. Or the common `icon.png` file
+
+<Note>
+electron-builder automatically generates all required Linux icon sizes from your source icon.
+</Note>
+
+### Custom Linux Icons
+
+You can provide custom Linux icons by placing them in `build/icons/` directory with size-specific filenames:
+
+```
+build/
+└── icons/
+    ├── 16x16.png
+    ├── 32x32.png
+    ├── 48x48.png
+    ├── 64x64.png
+    ├── 128x128.png
+    ├── 256x256.png
+    └── 512x512.png
+```
+
+**Recommended sizes:** 16, 32, 48, 64, 128, 256, 512 (or just 512)
+
+### Icon Configuration
+
+```json
+{
+  "build": {
+    "appId": "com.example.app",
+    "linux": {
+      "icon": "build/icons",
+      "target": "AppImage"
+    }
+  }
+}
+```
+
+### AppImage Icons
+
+For AppImage, you can specify a single icon file:
+
+```json
+{
+  "build": {
+    "linux": {
+      "icon": "build/icon.png"
+    },
+    "appImage": {
+      "license": "LICENSE"
+    }
+  }
+}
+```
+
+## Windows AppX Icons
+
+Windows AppX (Microsoft Store) requires a specific set of icons and assets. See [AppX Assets documentation](/configuration/appx#appx-assets) for detailed requirements.
+
+### Required AppX Assets
+
+```
+build/
+└── appx/
+    ├── StoreLogo.png           # 50x50
+    ├── Square44x44Logo.png     # 44x44
+    ├── Square150x150Logo.png   # 150x150
+    └── Wide310x150Logo.png     # 310x150
+```
+
+## Icon Best Practices
+
+### Size Requirements Summary
+
+| Platform | Format | Minimum Size | Recommended Size |
+|----------|--------|--------------|------------------|
+| macOS | `.icns`, `.icon`, `.png` | 512x512 | 1024x1024 |
+| Windows | `.ico`, `.png` | 256x256 | 512x512 |
+| Linux | `.png` | 512x512 | 512x512 |
+
+### Design Guidelines
+
+<Note>
+1. **Use vector source** - Start with a vector (SVG, AI) for best quality at all sizes
+2. **Square canvas** - Use a square canvas with equal width and height
+3. **Add padding** - Leave ~10% padding around the icon for better appearance
+4. **Test all sizes** - Verify your icon looks good at small sizes (16x16, 32x32)
+5. **Transparent background** - Use transparent backgrounds for PNG sources
+6. **High resolution** - Start with at least 1024x1024 for best results
+</Note>
+
+### Common Issues
+
+<Warning>
+**Icon appears blurry or pixelated**
+- Source image is too small
+- Use higher resolution source (1024x1024 minimum)
+
+**Wrong icon appears**
+- Icon file not in buildResources directory
+- Cached icon from previous build
+- Try clearing the build directory
+
+**DMG icon not showing**
+- DMG requires `.icns` format
+- If using `.icon`, set `dmg.icon` explicitly to `.icns`
+</Warning>
+
+## Using a Single PNG Source
+
+For simplicity, you can use a single high-resolution PNG file, and electron-builder will convert it to the appropriate format for each platform:
+
+```
+my-app/
+├── build/
+│   └── icon.png          # 1024x1024 PNG
+└── package.json
+```
+
+```json
+{
+  "build": {
+    "appId": "com.example.app",
+    "directories": {
+      "buildResources": "build"
+    }
+  }
+}
+```
+
+electron-builder will automatically:
+- Convert to `.icns` for macOS
+- Convert to `.ico` for Windows
+- Generate multiple sizes for Linux
+
+## Default Icon Behavior
+
+<Warning>
+If no icon is provided, the default Electron icon will be used, which is not suitable for production applications.
+</Warning>
+
+Icon resolution order:
+1. Platform-specific icon (`mac.icon`, `win.icon`, `linux.icon`)
+2. `icon.icns` (macOS), `icon.ico` (Windows), `icon.png` (Linux)
+3. `icon.png` (converted to platform format)
+4. Default Electron icon (not recommended)
+
+## Platform-Specific Icon Configuration
+
+```json
+{
+  "build": {
+    "appId": "com.example.app",
+    "mac": {
+      "icon": "build/macos-icon.icns"
+    },
+    "win": {
+      "icon": "build/windows-icon.ico"
+    },
+    "linux": {
+      "icon": "build/icons"
+    }
+  }
+}
+```
+
+## Advanced Icon Options
+
+### Setting Icon to null
+
+You can set icon options to `null` to explicitly use default behavior:
+
+```json
+{
+  "build": {
+    "dmg": {
+      "icon": null  // Use default OS volume icon
+    }
+  }
+}
+```
+
+### File Associations Icons
+
+You can specify icons for file associations:
+
+```json
+{
+  "build": {
+    "fileAssociations": [
+      {
+        "ext": "myfile",
+        "name": "My File",
+        "icon": "build/file-icon.icns"
+      }
+    ]
+  }
+}
+```
+
+### Protocol Icons
+
+For macOS protocol schemes:
+
+```json
+{
+  "build": {
+    "protocols": [
+      {
+        "name": "myapp",
+        "schemes": ["myapp"],
+        "icon": "build/protocol-icon.icns"
+      }
+    ]
+  }
+}
+```
+
+## Troubleshooting
+
+### Icon not updating
+
+1. Clear the build cache:
+   ```bash
+   rm -rf dist
+   ```
+
+2. On macOS, clear the icon cache:
+   ```bash
+   sudo rm -rf /Library/Caches/com.apple.iconservices.store
+   killall Finder
+   ```
+
+3. On Windows, rebuild the icon cache:
+   ```bash
+   ie4uinit.exe -show
+   ```
+
+### Verifying Icon Installation
+
+**macOS:**
+```bash
+# Check app icon
+ls -l dist/mac/MyApp.app/Contents/Resources/
+
+# Check Info.plist
+defaults read dist/mac/MyApp.app/Contents/Info.plist CFBundleIconFile
+```
+
+**Windows:**
+```bash
+# Check exe resources
+ResourceHacker.exe -open dist/MyApp.exe -action list
+```
+
+**Linux:**
+```bash
+# Check extracted AppImage
+./MyApp.AppImage --appimage-extract
+ls squashfs-root/usr/share/icons/
+```
+
+## Additional Resources
+
+- [macOS Icon Guidelines](https://developer.apple.com/design/human-interface-guidelines/app-icons)
+- [Windows Icon Guidelines](https://learn.microsoft.com/en-us/windows/apps/design/style/iconography/app-icon-construction)
+- [Linux Icon Theme Specification](https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html)
+- [Electron App Icon Documentation](https://www.electronjs.org/docs/latest/tutorial/application-distribution#application-icon)

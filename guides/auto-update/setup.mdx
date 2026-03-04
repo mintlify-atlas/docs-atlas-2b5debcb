@@ -1,0 +1,356 @@
+---
+title: Setting Up Auto-Updates
+description: Configure electron-updater for automatic application updates
+---
+
+Auto-updates are enabled by the `electron-updater` package, which allows your application to automatically check for and install new versions. This guide covers the complete setup process.
+
+## How Auto-Updates Work
+
+The auto-update process follows these steps:
+
+1. Configure the package to build release metadata (`latest.yml`)
+2. Electron builder uploads release targets and metadata files to the configured target
+3. Your Electron application queries the publish server for new releases
+
+<Warning>
+**Code signing is required on macOS**
+
+macOS applications must be [code signed](/guides/code-signing) for auto-updating to work.
+</Warning>
+
+## Auto-Updatable Targets
+
+The following build targets support auto-updates out of the box:
+
+- **macOS**: DMG
+- **Linux**: AppImage, DEB, Pacman (beta), and RPM
+- **Windows**: NSIS
+
+<Note>
+- **Squirrel.Windows is not supported**. Use the default NSIS target instead. You can [migrate to NSIS](https://github.com/electron-userland/electron-builder/issues/837#issuecomment-355698368).
+- For macOS, the `zip` target is required for Squirrel.Mac to create `latest-mac.yml`. The default target is `dmg`+`zip`, so no explicit configuration is needed.
+</Note>
+
+## Differences from Built-in autoUpdater
+
+The `electron-updater` package offers several advantages over Electron's built-in auto-updater:
+
+- **Linux support** in addition to macOS and Windows
+- **Code signature validation** on both macOS and Windows
+- **Automatic metadata generation** - all required metadata files and artifacts are produced and published automatically
+- **Download progress and staged rollouts** supported on all platforms
+- **Multiple providers** supported out of the box:
+  - [GitHub Releases](https://help.github.com/articles/about-releases/)
+  - [Amazon S3](https://aws.amazon.com/s3/)
+  - [DigitalOcean Spaces](https://www.digitalocean.com/community/tutorials/an-introduction-to-digitalocean-spaces)
+  - [Keygen](https://keygen.sh/docs/api/#auto-updates-electron)
+  - Generic HTTP(s) server
+- **Simple integration** - only 2 lines of code required
+
+## Quick Setup Guide
+
+### 1. Install electron-updater
+
+Install [electron-updater](https://yarn.pm/electron-updater) as an app dependency:
+
+```bash
+npm install electron-updater
+# or
+yarn add electron-updater
+```
+
+### 2. Configure Publish Options
+
+Configure the [`publish`](/configuration/publish) options in your `electron-builder` config depending on where you want to host your release files.
+
+### 3. Build Your Application
+
+Build your application and verify that the build directory contains the metadata `.yml` files next to the built application. For most publish targets, the build step will also upload the files automatically (except for generic server option, where you must upload manually).
+
+### 4. Import autoUpdater
+
+Use `autoUpdater` from `electron-updater` instead of `electron`:
+
+<CodeGroup>
+```js CommonJS
+const { autoUpdater } = require("electron-updater")
+```
+
+```js ESM
+import { autoUpdater } from "electron-updater"
+```
+
+```typescript TypeScript
+import electronUpdater, { type AppUpdater } from 'electron-updater';
+
+export function getAutoUpdater(): AppUpdater {
+  // Using destructuring to access autoUpdater due to the CommonJS module of 'electron-updater'.
+  // It is a workaround for ESM compatibility issues, see https://github.com/electron-userland/electron-builder/issues/7976.
+  const { autoUpdater } = electronUpdater;
+  return autoUpdater;
+}
+```
+</CodeGroup>
+
+### 5. Check for Updates
+
+Call `autoUpdater.checkForUpdatesAndNotify()` for simple automatic updates, or implement custom event handlers for more control.
+
+<Warning>
+Do not call `setFeedURL`. electron-builder automatically creates the `app-update.yml` file for you on build in the `resources` directory.
+</Warning>
+
+## Basic Implementation
+
+### Simple Auto-Update with Notifications
+
+```typescript
+import { autoUpdater } from "electron-updater"
+
+export default class AppUpdater {
+  constructor() {
+    const log = require("electron-log")
+    log.transports.file.level = "debug"
+    autoUpdater.logger = log
+    autoUpdater.checkForUpdatesAndNotify()
+  }
+}
+```
+
+### Custom Implementation with Event Handlers
+
+For more control over the update process, listen to specific events:
+
+```typescript
+import { autoUpdater } from "electron-updater"
+import log from "electron-log"
+
+autoUpdater.logger = log
+autoUpdater.logger.transports.file.level = "info"
+
+autoUpdater.on('checking-for-update', () => {
+  log.info('Checking for update...');
+})
+
+autoUpdater.on('update-available', (info) => {
+  log.info('Update available.');
+})
+
+autoUpdater.on('update-not-available', (info) => {
+  log.info('Update not available.');
+})
+
+autoUpdater.on('error', (err) => {
+  log.error('Error in auto-updater. ' + err);
+})
+
+autoUpdater.on('download-progress', (progressObj) => {
+  let log_message = "Download speed: " + progressObj.bytesPerSecond;
+  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+  log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+  log.info(log_message);
+})
+
+autoUpdater.on('update-downloaded', (info) => {
+  log.info('Update downloaded');
+  // Install update after download
+  autoUpdater.quitAndInstall();
+});
+
+// Start checking for updates
+autoUpdater.checkForUpdates();
+```
+
+## Advanced Configuration
+
+### Custom Options with Direct Instantiation
+
+For more control over the updater configuration (e.g., request headers for authorization):
+
+```typescript
+import { NsisUpdater } from "electron-updater"
+// Or MacUpdater, AppImageUpdater
+
+export default class AppUpdater {
+  constructor() {
+    const options = {
+      requestHeaders: {
+        // Any request headers to include here
+      },
+      provider: 'generic',
+      url: 'https://example.com/auto-updates'
+    }
+
+    const autoUpdater = new NsisUpdater(options)
+    autoUpdater.addAuthHeader(`Bearer ${token}`)
+    autoUpdater.checkForUpdatesAndNotify()
+  }
+}
+```
+
+### Staged Rollouts
+
+Staged rollouts allow you to distribute updates to a subset of users. Control this by editing your `latest.yml` / `latest-mac.yml` file:
+
+```yaml
+version: 1.1.0
+path: TestApp Setup 1.1.0.exe
+sha512: Dj51I0q8aPQ3ioaz9LMqGYujAYRbDNblAQbodDRXAMxmY6hsHqEl3F6SvhfJj5oPhcqdX1ldsgEvfMNXGUXBIw==
+stagingPercentage: 10
+```
+
+This example ships the update to 10% of your userbase.
+
+<Warning>
+If you need to pull a staged release, you must increment the version number higher than your broken release. Some users will already be on the broken version, and releasing the same version number would leave them stuck.
+</Warning>
+
+## API Reference
+
+### Properties
+
+<ResponseField name="autoDownload" type="boolean" default="true">
+  Whether to automatically download an update when it is found.
+</ResponseField>
+
+<ResponseField name="autoInstallOnAppQuit" type="boolean" default="true">
+  Whether to automatically install a downloaded update on app quit (if `quitAndInstall` was not called before).
+</ResponseField>
+
+<ResponseField name="autoRunAppAfterInstall" type="boolean" default="true">
+  Whether to run the app after finish install when the installer is NOT in silent mode.
+</ResponseField>
+
+<ResponseField name="allowPrerelease" type="boolean" default="false">
+  *GitHub provider only.* Whether to allow update to pre-release versions. Defaults to `true` if application version contains prerelease components (e.g. `0.12.1-alpha.1`), otherwise `false`.
+  
+  If `true`, downgrade will be allowed (`allowDowngrade` will be set to `true`).
+</ResponseField>
+
+<ResponseField name="allowDowngrade" type="boolean" default="false">
+  Whether to allow version downgrade (when a user from the beta channel wants to go back to the stable channel).
+  
+  Taken into account only if channel differs (pre-release version component in terms of semantic versioning).
+</ResponseField>
+
+<ResponseField name="disableDifferentialDownload" type="boolean" default="false">
+  *NSIS only* Disable differential downloads and always perform full download of installer.
+</ResponseField>
+
+<ResponseField name="forceDevUpdateConfig" type="boolean" default="false">
+  Allows developer to force the updater to work in "dev" mode, looking for "dev-app-update.yml" instead of "app-update.yml".
+  
+  - Dev: `path.join(this.app.getAppPath(), "dev-app-update.yml")`
+  - Prod: `path.join(process.resourcesPath!, "app-update.yml")`
+</ResponseField>
+
+### Events
+
+The `autoUpdater` object emits the following events:
+
+#### `error`
+
+- `error` Error
+
+Emitted when there is an error while updating.
+
+#### `checking-for-update`
+
+Emitted when checking if an update has started.
+
+#### `update-available`
+
+- `info` UpdateInfo
+
+Emitted when there is an available update. The update is downloaded automatically if `autoDownload` is `true`.
+
+#### `update-not-available`
+
+- `info` UpdateInfo
+
+Emitted when there is no available update.
+
+#### `download-progress`
+
+- `progress` ProgressInfo
+  - `bytesPerSecond` - Download speed in bytes per second
+  - `percent` - Progress percentage
+  - `total` - Total bytes
+  - `transferred` - Transferred bytes
+
+Emitted on download progress.
+
+#### `update-downloaded`
+
+- `info` UpdateInfo
+
+Emitted when an update has been downloaded.
+
+### Methods
+
+#### `checkForUpdates()`
+
+Asks the server whether there is an update.
+
+**Returns:** `Promise<UpdateCheckResult | null>` - Returns null if the updater is disabled, otherwise info about the latest version.
+
+#### `checkForUpdatesAndNotify()`
+
+Checks for updates and shows a system notification when an update is downloaded.
+
+**Returns:** `Promise<UpdateCheckResult | null>`
+
+#### `downloadUpdate(cancellationToken?)`
+
+Start downloading update manually. Use this method if `autoDownload` option is set to `false`.
+
+**Parameters:**
+- `cancellationToken` - Optional cancellation token
+
+**Returns:** `Promise<Array<string>>` - Paths to downloaded files.
+
+#### `quitAndInstall(isSilent?, isForceRunAfter?)`
+
+Restarts the app and installs the update after it has been downloaded. Should only be called after `update-downloaded` has been emitted.
+
+**Parameters:**
+- `isSilent` (boolean) - *Windows-only* Runs the installer in silent mode. Defaults to `false`.
+- `isForceRunAfter` (boolean) - Run the app after finish even on silent install. Not applicable for macOS. Ignored if `isSilent` is set to `false`.
+
+<Note>
+`autoUpdater.quitAndInstall()` will close all application windows first and only emit `before-quit` event on `app` after that. This is different from the normal quit event sequence.
+</Note>
+
+## Examples
+
+- [Complete example](https://github.com/iffy/electron-updater-example) showing how to use electron-updater
+- [Encapsulated manual update via menu](https://github.com/electron-userland/electron-builder/blob/7f6c3fea6fea8cffa00a43413f5335097aca94b0/pages/encapsulated%20manual%20update%20via%20menu.js)
+
+## Private GitHub Update Repo
+
+You can use a private repository for updates with electron-updater by setting the `GH_TOKEN` environment variable (on user machine) and `private` option. If `GH_TOKEN` is set, electron-updater will use the GitHub API for updates.
+
+<Warning>
+Private GitHub provider is only for [very special](https://github.com/electron-userland/electron-builder/issues/1393#issuecomment-288191885) cases — not intended and not suitable for all users.
+</Warning>
+
+<Note>
+The GitHub API currently has a rate limit of 5000 requests per user per hour. An update check uses up to 3 requests per check.
+</Note>
+
+## Compatibility
+
+Generated metadata files format changes from time to time, but compatibility is preserved up to version 1. For new projects, set `electronUpdaterCompatibility` to the current latest format version (`>= 2.16`).
+
+Option `electronUpdaterCompatibility` sets the electron-updater compatibility semver range. Can be specified per platform.
+
+Examples: `>= 2.16`, `>=1.0.0`. Defaults to `>=2.15`
+
+- `1.0.0` - latest-mac.json
+- `2.15.0` - path
+- `2.16.0` - files
+
+## Generated Files
+
+`latest.yml` (or `latest-mac.yml` for macOS, or `latest-linux.yml` for Linux) will be generated and uploaded for all providers except `bintray`.

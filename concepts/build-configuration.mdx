@@ -1,0 +1,388 @@
+---
+title: Build Configuration
+description: Learn how to configure electron-builder using package.json, separate config files, or programmatic methods
+icon: gear
+---
+
+electron-builder configuration can be defined in multiple ways, giving you flexibility in how you structure your build setup.
+
+## Configuration Methods
+
+### Using package.json
+
+The simplest method is to add a `build` key to your `package.json` file:
+
+```json package.json
+{
+  "name": "my-electron-app",
+  "version": "1.0.0",
+  "build": {
+    "appId": "com.example.app",
+    "productName": "My Electron App",
+    "copyright": "Copyright © 2026 ${author}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"]
+    }
+  }
+}
+```
+
+### Using Separate Configuration Files
+
+For larger projects, you can use a separate configuration file. Use the `--config` option to specify the path:
+
+```bash
+electron-builder --config electron-builder.yml
+```
+
+<Note>
+By default, electron-builder looks for `electron-builder.yml` in your project root.
+</Note>
+
+<Tabs>
+  <Tab title="YAML">
+    ```yaml electron-builder.yml
+    appId: com.example.app
+    productName: My Electron App
+    copyright: Copyright © 2026 ${author}
+    
+    directories:
+      output: dist
+      buildResources: build
+    
+    files:
+      - dist/**/*
+      - node_modules/**/*
+      - package.json
+    
+    mac:
+      category: public.app-category.developer-tools
+      target:
+        - dmg
+        - zip
+    
+    win:
+      target: nsis
+    
+    linux:
+      target:
+        - AppImage
+        - deb
+    ```
+  </Tab>
+  
+  <Tab title="JSON5">
+    ```json5 electron-builder.json5
+    {
+      appId: "com.example.app",
+      productName: "My Electron App",
+      copyright: "Copyright © 2026 ${author}",
+      
+      directories: {
+        output: "dist",
+        buildResources: "build"
+      },
+      
+      files: [
+        "dist/**/*",
+        "node_modules/**/*",
+        "package.json"
+      ],
+      
+      mac: {
+        category: "public.app-category.developer-tools",
+        target: ["dmg", "zip"]
+      },
+      
+      win: {
+        target: "nsis"
+      },
+      
+      linux: {
+        target: ["AppImage", "deb"]
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="TOML">
+    ```toml electron-builder.toml
+    appId = "com.example.app"
+    productName = "My Electron App"
+    copyright = "Copyright © 2026 ${author}"
+    
+    [directories]
+    output = "dist"
+    buildResources = "build"
+    
+    files = [
+      "dist/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ]
+    
+    [mac]
+    category = "public.app-category.developer-tools"
+    target = ["dmg", "zip"]
+    
+    [win]
+    target = "nsis"
+    
+    [linux]
+    target = ["AppImage", "deb"]
+    ```
+    
+    <Note>
+    To use TOML format, install the toml package: `yarn add toml --dev`
+    </Note>
+  </Tab>
+</Tabs>
+
+### Using JavaScript/TypeScript
+
+For dynamic configuration, you can use JavaScript or TypeScript files:
+
+```javascript electron-builder.config.js
+export default {
+  appId: "com.example.app",
+  productName: "My Electron App",
+  directories: {
+    output: "dist"
+  },
+  files: [
+    "dist/**/*",
+    "node_modules/**/*",
+    "package.json"
+  ],
+  mac: {
+    category: "public.app-category.developer-tools"
+  },
+  win: {
+    target: "nsis"
+  },
+  linux: {
+    target: ["AppImage", "deb"]
+  }
+}
+```
+
+Or export a function that returns configuration:
+
+```javascript electron-builder.config.js
+export default async function (env) {
+  return {
+    appId: "com.example.app",
+    productName: env.production ? "My App" : "My App (Dev)",
+    directories: {
+      output: env.production ? "dist" : "dist-dev"
+    },
+    // ... more configuration
+  }
+}
+```
+
+<Warning>
+Do not name your JavaScript config file `electron-builder.js` as it will conflict with the electron-builder package name.
+</Warning>
+
+## Core Configuration Options
+
+### Application Identity
+
+```typescript
+interface CommonConfiguration {
+  /**
+   * The application id. Used as CFBundleIdentifier for macOS and
+   * Application User Model ID for Windows (NSIS target only).
+   * @default com.electron.${name}
+   */
+  appId?: string | null
+  
+  /**
+   * Product name with spaces and special characters.
+   * Falls back to productName in package.json, then name.
+   */
+  productName?: string | null
+  
+  /**
+   * The human-readable copyright line.
+   * @default Copyright © year ${author}
+   */
+  copyright?: string | null
+}
+```
+
+### Directories
+
+```typescript
+interface MetadataDirectories {
+  /**
+   * The path to build resources.
+   * Build resources are NOT packed into the app.
+   * @default build
+   */
+  buildResources?: string | null
+  
+  /**
+   * The output directory. File macros are supported.
+   * @default dist
+   */
+  output?: string | null
+  
+  /**
+   * The application directory containing package.json.
+   * @default app, www, or working directory
+   */
+  app?: string | null
+}
+```
+
+### Build Version Management
+
+```json
+{
+  "build": {
+    "buildNumber": "123",
+    "buildVersion": "1.0.0.123"
+  }
+}
+```
+
+<Note>
+On CI servers (Travis, AppVeyor, CircleCI, Bamboo), `buildNumber` automatically falls back to `BUILD_NUMBER`, `TRAVIS_BUILD_NUMBER`, `APPVEYOR_BUILD_NUMBER`, `CIRCLE_BUILD_NUM`, `BUILD_BUILDNUMBER`, or `CI_PIPELINE_IID` environment variables.
+</Note>
+
+### Native Dependencies
+
+```typescript
+interface CommonConfiguration {
+  /**
+   * Whether to build native dependencies from source.
+   * @default false
+   */
+  buildDependenciesFromSource?: boolean
+  
+  /**
+   * Whether to execute node-gyp rebuild before packaging.
+   * @default false
+   */
+  nodeGypRebuild?: boolean
+  
+  /**
+   * Whether to rebuild native dependencies.
+   * @default true
+   */
+  npmRebuild?: boolean
+  
+  /**
+   * Use legacy app-builder or @electron/rebuild.
+   * @default sequential
+   */
+  nativeRebuilder?: "legacy" | "sequential" | "parallel" | null
+}
+```
+
+## Platform-Specific Configuration
+
+Configuration can be overridden per platform using `mac`, `win`, and `linux` keys:
+
+```yaml electron-builder.yml
+# Common configuration
+appId: com.example.app
+compression: normal
+
+# macOS-specific
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+  icon: build/icon.icns
+
+# Windows-specific
+win:
+  target: nsis
+  icon: build/icon.ico
+
+# Linux-specific
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+```
+
+## Environment Variables
+
+You can create an `electron-builder.env` file in your project root for environment variables:
+
+```bash electron-builder.env
+APP_ENV=production
+API_URL=https://api.example.com
+```
+
+<Note>
+Environment variable files are only supported for CLI usage.
+</Note>
+
+## Configuration Extends
+
+You can extend from built-in presets or other configuration files:
+
+```json package.json
+{
+  "build": {
+    "extends": "react-cra",
+    "appId": "com.example.app"
+  }
+}
+```
+
+Or extend from multiple files:
+
+```json
+{
+  "build": {
+    "extends": [
+      "./base-config.json",
+      "./platform-config.json"
+    ]
+  }
+}
+```
+
+<Note>
+If `react-scripts` is in your app dependencies, `react-cra` preset is set automatically. Set to `null` to disable.
+</Note>
+
+## Null Values
+
+Most options accept `null` to explicitly disable default behavior:
+
+```yaml
+dmg:
+  icon: null  # Use default OS volume icon instead of app icon
+```
+
+## Reading Documentation Conventions
+
+<Note>
+- **Bold** property names are required
+- Normal property names are optional
+- Types are specified after property names: `Array<String> | String`
+- Union types mean you can specify either format: `"**/*"` or `["**/*", "!foo.js"]`
+</Note>

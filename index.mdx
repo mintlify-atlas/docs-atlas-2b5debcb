@@ -1,97 +1,286 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: electron-builder
+mode: custom
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#0f1117] via-[#1a1d27] to-[#0f1117] dark:from-[#0f1117] dark:via-[#1a1d27] dark:to-[#0f1117] py-20">
+  <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:50px_50px]" />
+  <div className="relative max-w-7xl mx-auto px-6 lg:px-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-100 dark:text-gray-100 mb-6">
+          Package and Distribute Electron Apps
+        </h1>
+        <p className="text-lg sm:text-xl text-gray-400 dark:text-gray-400 max-w-2xl mb-8">
+          A complete solution to build ready-for-distribution Electron apps for macOS, Windows, and Linux with auto-update support out of the box.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a 
+            href="/quick-start" 
+            className="inline-flex items-center px-6 py-3 rounded-lg bg-[#1E90FF] hover:bg-[#0066CC] text-white font-semibold transition-colors no-underline"
+          >
+            Get Started
+            <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </a>
+          <a 
+            href="/api/programmatic-usage" 
+            className="inline-flex items-center px-6 py-3 rounded-lg border border-gray-600 bg-gray-800/30 hover:bg-gray-800/50 hover:border-[#1E90FF] text-gray-200 font-semibold transition-all no-underline"
+          >
+            API Reference
+          </a>
+        </div>
+      </div>
+      <div className="lg:col-span-5 hidden lg:block">
+        <div className="relative">
+          <div className="absolute inset-0 bg-[#1E90FF]/20 blur-3xl rounded-full" />
+          <pre className="relative bg-[#1a1d27] dark:bg-[#1a1d27] border border-[#27272a] dark:border-[#27272a] rounded-lg p-6 text-sm overflow-x-auto">
+            <code className="text-gray-300 dark:text-gray-300">
+{`{
+  "build": {
+    "appId": "com.example.app",
+    "mac": {
+      "category": "public.app-category.tools"
+    },
+    "win": {
+      "target": ["nsis", "msi"]
+    },
+    "linux": {
+      "target": ["AppImage", "snap"]
+    }
+  }
+}`}
+            </code>
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Quick Start
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Get your Electron app packaged and distributed in minutes
+  </p>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+  <Steps>
+    <Step title="Install electron-builder">
+      Add electron-builder to your project as a dev dependency:
 
-## Make it yours
+      <CodeGroup>
+      ```bash npm
+      npm install electron-builder --save-dev
+      ```
+      ```bash yarn
+      yarn add electron-builder --dev
+      ```
+      ```bash pnpm
+      pnpm add -D electron-builder
+      ```
+      </CodeGroup>
+    </Step>
 
-Design a docs site that looks great and empowers your users.
+    <Step title="Configure your package.json">
+      Add build configuration to your `package.json`:
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+      ```json package.json
+      {
+        "name": "your-app",
+        "version": "1.0.0",
+        "description": "Your Electron app",
+        "author": "Your Name",
+        "build": {
+          "appId": "com.yourcompany.yourapp",
+          "mac": {
+            "category": "your.app.category.type"
+          }
+        },
+        "scripts": {
+          "build": "electron-builder"
+        }
+      }
+      ```
 
-## Create beautiful pages
+      <Note>
+        The `appId` should be unique to your application and follow reverse-DNS notation.
+      </Note>
+    </Step>
 
-Everything you need to create world-class documentation.
+    <Step title="Build your application">
+      Run the build command to package your app:
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+      ```bash
+      npm run build
+      ```
 
-## Need inspiration?
+      electron-builder will automatically detect your platform and build the appropriate installer. Find your packaged app in the `dist` directory.
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+      <Accordion title="Example output">
+        ```
+        • electron-builder  version=24.13.3 os=macOS
+        • loaded configuration  file=package.json ("build" field)
+        • building        target=macOS zip arch=arm64 file=dist/YourApp-1.0.0-arm64-mac.zip
+        • building        target=DMG arch=arm64 file=dist/YourApp-1.0.0-arm64.dmg
+        ```
+      </Accordion>
+    </Step>
+
+    <Step title="Customize your build">
+      Explore [configuration options](/configuration/common) to customize installers, add code signing, configure auto-updates, and more.
+    </Step>
+  </Steps>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Platform Support
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Build native installers for all major platforms
+  </p>
+
+  <CardGroup cols={3}>
+    <Card title="macOS" icon="apple" href="/packaging/macos">
+      DMG, PKG, and Mac App Store builds with code signing and notarization support.
+    </Card>
+    <Card title="Windows" icon="windows" href="/packaging/windows">
+      NSIS, MSI, AppX, and portable installers with code signing and Squirrel.Windows support.
+    </Card>
+    <Card title="Linux" icon="linux" href="/packaging/linux">
+      AppImage, Snap, Flatpak, deb, rpm, and more distribution formats.
+    </Card>
+  </CardGroup>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Key Features
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Everything you need to ship production-ready Electron apps
+  </p>
+
+  <CardGroup cols={2}>
+    <Card title="Auto Update" icon="arrows-rotate" href="/distribution/auto-update">
+      Built-in auto-update support with electron-updater for seamless app updates.
+    </Card>
+    <Card title="Code Signing" icon="certificate" href="/distribution/code-signing">
+      Sign your apps for macOS and Windows to avoid security warnings.
+    </Card>
+    <Card title="Multi-Platform Builds" icon="server" href="/concepts/multi-platform-builds">
+      Build for all platforms from any platform using Docker.
+    </Card>
+    <Card title="Publishing" icon="upload" href="/distribution/publishing">
+      Publish to GitHub Releases, S3, DigitalOcean Spaces, and more.
+    </Card>
+    <Card title="Native Dependencies" icon="cube" href="/guides/advanced/app-dependencies">
+      Automatic compilation of native Node.js modules for the target platform.
+    </Card>
+    <Card title="CLI & Programmatic API" icon="terminal" href="/cli/commands">
+      Use from command line or integrate into your build pipeline with the programmatic API.
+    </Card>
+  </CardGroup>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Explore the Documentation
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Dive deeper into electron-builder capabilities
+  </p>
+
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <a href="/concepts/build-configuration" className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#1E90FF] dark:hover:border-[#1E90FF] overflow-hidden no-underline transition-colors">
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-[#1E90FF] dark:group-hover:text-[#1E90FF] transition-colors">
+          Build Configuration
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Learn how to configure electron-builder for your project needs
+        </p>
+        <span className="text-sm text-gray-500 dark:text-gray-500 group-hover:text-[#1E90FF] dark:group-hover:text-[#1E90FF] transition-colors inline-flex items-center">
+          Read more
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </div>
+    </a>
+
+    <a href="/guides/code-signing/overview" className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#1E90FF] dark:hover:border-[#1E90FF] overflow-hidden no-underline transition-colors">
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-[#1E90FF] dark:group-hover:text-[#1E90FF] transition-colors">
+          Code Signing Guide
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Sign your applications to ensure users trust your software
+        </p>
+        <span className="text-sm text-gray-500 dark:text-gray-500 group-hover:text-[#1E90FF] dark:group-hover:text-[#1E90FF] transition-colors inline-flex items-center">
+          Read more
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </div>
+    </a>
+
+    <a href="/configuration/common" className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#1E90FF] dark:hover:border-[#1E90FF] overflow-hidden no-underline transition-colors">
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-[#1E90FF] dark:group-hover:text-[#1E90FF] transition-colors">
+          Configuration Reference
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Complete reference for all configuration options
+        </p>
+        <span className="text-sm text-gray-500 dark:text-gray-500 group-hover:text-[#1E90FF] dark:group-hover:text-[#1E90FF] transition-colors inline-flex items-center">
+          Read more
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </div>
+    </a>
+
+    <a href="/api/programmatic-usage" className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#1E90FF] dark:hover:border-[#1E90FF] overflow-hidden no-underline transition-colors">
+      <div className="p-6">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-[#1E90FF] dark:group-hover:text-[#1E90FF] transition-colors">
+          Programmatic API
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Integrate electron-builder into your build scripts
+        </p>
+        <span className="text-sm text-gray-500 dark:text-gray-500 group-hover:text-[#1E90FF] dark:group-hover:text-[#1E90FF] transition-colors inline-flex items-center">
+          Read more
+          <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div className="mt-20 mb-16 max-w-5xl mx-auto px-6">
+  <div className="rounded-2xl bg-gradient-to-br from-[#1E90FF]/10 to-[#0066CC]/10 dark:from-[#1E90FF]/10 dark:to-[#0066CC]/10 border border-[#1E90FF]/20 dark:border-[#1E90FF]/20 p-8 sm:p-12">
+    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+      Ready to build your Electron app?
+    </h2>
+    <p className="text-base text-gray-600 dark:text-gray-400 mb-6 max-w-2xl">
+      Install electron-builder and start packaging your application for distribution in minutes.
+    </p>
+    <a 
+      href="/installation" 
+      className="inline-flex items-center px-6 py-3 rounded-lg bg-[#1E90FF] hover:bg-[#0066CC] text-white font-semibold transition-colors no-underline"
+    >
+      Get Started Now
+      <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+      </svg>
+    </a>
+  </div>
+</div>

@@ -1,0 +1,282 @@
+---
+title: Testing Auto-Updates Locally
+description: How to test the auto-update process locally using Minio and S3
+---
+
+Auto-updates are one of the most critical pieces of any application, and testing that process is important. This guide explains how to test the auto-update process locally using Minio, a locally runnable server that implements the S3 protocol.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+- A working electron-builder configuration
+- Your application built at least once
+- Basic familiarity with command-line tools
+
+## Step 1: Download and Install Minio
+
+Minio is a locally runnable server that implements the S3 protocol. Download both the server and client from [min.io/download](https://min.io/download).
+
+Place both executables in a directory (we'll refer to this as `minio-home`). Your directory should look like this:
+
+```
+minio-home
+├── minio.exe
+└── mc.exe
+```
+
+## Step 2: Create and Configure a Bucket
+
+### Create the Data Directory and Bucket
+
+Run the following commands in `minio-home`:
+
+```bash
+mkdir ./minio-data
+mkdir ./minio-data/test-bucket
+```
+
+### Start the Minio Server
+
+Start the server with the default credentials:
+
+```bash
+./minio.exe server ./minio-data
+```
+
+This will start the server with the default credentials: **minioadmin** (both username and password).
+
+### Access the Web Client
+
+Open your browser and navigate to [http://127.0.0.1:9000](http://127.0.0.1:9000). Log in with the default credentials.
+
+### Set Bucket Permissions
+
+<Warning>
+This step is necessary for the updater to have access to the updates.
+</Warning>
+
+Add a read policy on the bucket:
+
+1. Access the web client
+2. Go to the bucket settings
+3. Add a `*` `Read Only` policy
+
+## Step 3: Publish the Updates
+
+### Initial Build
+
+First, build the application once so you don't have to wait for a build every time:
+
+```bash
+npm run build
+# or your specific build command
+```
+
+### Set Environment Variables
+
+Ensure your `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables are set:
+
+<CodeGroup>
+```bash Terminal
+export AWS_ACCESS_KEY_ID=minioadmin
+export AWS_SECRET_ACCESS_KEY=minioadmin
+```
+
+```javascript .env file (with dotenv)
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
+```
+
+```javascript Configuration file
+require("dotenv").config()
+```
+</CodeGroup>
+
+### Configure Publish Command
+
+Modify your publish command to point to the local Minio server. For example, if you have a command named `publish:prod`:
+
+```json package.json
+{
+  "scripts": {
+    "publish:prod": "electron-builder --x64 --config configs/electron-builder.js",
+    "publish:dev": "npm run publish:prod -- --publish always --config.publish.provider=s3 --config.publish.endpoint=http://localhost:9000 --config.publish.bucket=test-bucket"
+  }
+}
+```
+
+This will automatically override the publish configurations and run the publish process locally.
+
+### Update Version Number
+
+Go into your `package.json` file and update the version number to something **higher** than the current version:
+
+```json package.json
+{
+  "version": "1.0.1"  // Change to higher version, e.g., "1.0.2"
+}
+```
+
+<Note>
+Updating the version number is important for a new update to be detected.
+</Note>
+
+### Publish to Minio
+
+Run your publish command:
+
+```bash
+npm run publish:dev
+```
+
+### Verify Upload
+
+Go to the web client at [http://127.0.0.1:9000](http://127.0.0.1:9000). You should see:
+- The executable file
+- Corresponding blockmap file
+- A `latest.yml` file
+
+## Step 4: Install and Test
+
+### Install the Application
+
+Install the built application from your output directory (default is `dist`):
+
+1. Locate the installer in your `dist` directory
+2. Run the installer
+3. Complete the installation process
+
+### Start and Monitor
+
+Start the application and check the log output to monitor the update process.
+
+#### Log Locations
+
+<CodeGroup>
+```text Windows
+%AppData%\Roaming\yourapp\log.log
+```
+
+```text macOS
+~/Library/Logs/yourapp/log.log
+```
+
+```text Linux
+~/.config/yourapp/logs/main.log
+```
+</CodeGroup>
+
+The log file will contain the updater logs and indicate:
+- How far the update process has progressed
+- At what step the update fails (if it does)
+
+### Successful Update
+
+If your update flow is correct, you should see an update notification as normal.
+
+## Debugging Tips
+
+### Enable Logging
+
+Ensure you have logging enabled in your application:
+
+```typescript
+import { autoUpdater } from "electron-updater"
+import log from "electron-log"
+
+autoUpdater.logger = log
+autoUpdater.logger.transports.file.level = "info"
+```
+
+### Force Dev Update Config
+
+During development, you may need to create a `dev-app-update.yml` file in the root of your project:
+
+```yaml dev-app-update.yml
+provider: generic
+url: http://localhost:9000/test-bucket
+```
+
+And force the updater to use it:
+
+```typescript
+autoUpdater.forceDevUpdateConfig = true
+```
+
+### Common Issues
+
+#### AppImage Environment Variable
+
+If you see this error in logs:
+
+```
+APPIMAGE env is not defined, current application is not an AppImage
+```
+
+Apply this workaround:
+
+```javascript
+const path = require('path')
+const { app } = require('electron')
+
+process.env.APPIMAGE = path.join(__dirname, 'dist', `app_name-${app.getVersion()}.AppImage`)
+```
+
+<Warning>
+Testing in development mode is not recommended. It's better to test auto-update for installed applications (especially on Windows).
+</Warning>
+
+## Alternative: Using Amazon S3
+
+While Minio is great for local testing, you can also use actual Amazon S3 for testing:
+
+1. Create an S3 bucket
+2. Configure bucket permissions for public read access
+3. Set your AWS credentials
+4. Use the S3 bucket URL in your publish configuration
+
+## Best Practices
+
+<Check>
+  **Test the complete flow** - Always test the full update cycle from check → download → install
+</Check>
+
+<Check>
+  **Test on actual hardware** - Test on the actual platforms you're targeting
+</Check>
+
+<Check>
+  **Test version upgrades** - Test both minor and major version upgrades
+</Check>
+
+<Check>
+  **Monitor logs** - Always check the logs to understand what's happening
+</Check>
+
+<Check>
+  **Test rollbacks** - If using channels, test downgrading between channels
+</Check>
+
+## Example Update Flow
+
+Here's a typical test scenario:
+
+1. Build and install version 1.0.0 locally
+2. Update `package.json` to version 1.0.1
+3. Build and publish to Minio
+4. Launch the installed 1.0.0 application
+5. Verify the update is detected
+6. Verify the update downloads
+7. Verify the update installs correctly
+8. Verify the application launches with the new version
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Release Channels" icon="satellite-dish" href="/guides/auto-update/channels">
+    Learn how to set up beta and alpha release channels
+  </Card>
+  <Card title="Auto-Update Setup" icon="rotate" href="/guides/auto-update/setup">
+    Review the complete auto-update setup guide
+  </Card>
+</CardGroup>

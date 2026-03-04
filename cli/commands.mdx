@@ -1,0 +1,175 @@
+---
+title: Commands
+description: Available electron-builder CLI commands
+---
+
+electron-builder provides several commands to build, install dependencies, and manage your Electron application.
+
+## electron-builder build
+
+The main command to build your Electron application. This is the default command.
+
+```bash
+electron-builder build
+```
+
+Or simply:
+
+```bash
+electron-builder
+```
+
+### Build for specific platforms
+
+```bash
+# Build for macOS, Windows and Linux
+electron-builder -mwl
+
+# Build for macOS only
+electron-builder --mac
+
+# Build for Windows only
+electron-builder --win
+
+# Build for Linux only
+electron-builder --linux
+```
+
+### Build specific targets
+
+```bash
+# Build deb and tar.xz for Linux
+electron-builder --linux deb tar.xz
+
+# Build NSIS 32-bit installer for Windows
+electron-builder --windows nsis:ia32
+```
+
+### Build for specific architectures
+
+```bash
+# Build for Windows ia32
+electron-builder --win --ia32
+
+# Build for x64
+electron-builder --x64
+
+# Build universal macOS app
+electron-builder --mac --universal
+```
+
+### Build unpacked directory
+
+Useful for testing without creating distributable packages:
+
+```bash
+electron-builder --dir
+```
+
+### Using npx
+
+Since Node.js 8, you can use `npx` to run electron-builder without a global install:
+
+```bash
+npx electron-builder
+```
+
+<Tip>
+Prepend `npx` to sample commands if you run them from Terminal and not from `package.json` scripts.
+</Tip>
+
+## electron-builder install-app-deps
+
+Installs or rebuilds native dependencies for your Electron application.
+
+```bash
+electron-builder install-app-deps
+```
+
+Or using the standalone command:
+
+```bash
+install-app-deps
+```
+
+### Options
+
+- `--platform` - Target platform (linux, darwin, win32). Defaults to current platform.
+- `--arch` - Target architecture (x64, ia32, armv7l, arm64, all). Defaults to current architecture.
+
+```bash
+# Install dependencies for specific platform
+electron-builder install-app-deps --platform=win32
+
+# Install dependencies for specific architecture
+electron-builder install-app-deps --arch=arm64
+```
+
+## electron-builder node-gyp-rebuild
+
+Rebuild native Node.js modules for Electron.
+
+```bash
+electron-builder node-gyp-rebuild
+```
+
+This command uses the same options as `install-app-deps`:
+
+```bash
+# Rebuild for specific platform and architecture
+electron-builder node-gyp-rebuild --platform=darwin --arch=arm64
+```
+
+## electron-builder create-self-signed-cert
+
+Create a self-signed code signing certificate for Windows applications.
+
+```bash
+electron-builder create-self-signed-cert --publisher="Your Company Name"
+```
+
+### Options
+
+- `--publisher`, `-p` (required) - The publisher name for the certificate
+
+## electron-builder start
+
+Run your application in development mode using electron-webpack.
+
+```bash
+electron-builder start
+```
+
+## electron-builder publish
+
+Publish a list of artifacts to configured publishers (e.g., GitHub Releases).
+
+```bash
+electron-builder publish
+```
+
+### Options
+
+- `--files`, `-f` (required) - The file(s) to upload to your publisher
+- `--version`, `-v` - The app/build version used when searching for an upload release
+- `--config`, `-c` - Path to electron-builder config file
+
+```bash
+# Publish specific files
+electron-builder publish --files dist/MyApp-1.0.0.dmg
+
+# Publish with specific version
+electron-builder publish --files dist/*.dmg --version 1.0.0
+```
+
+## Getting Help
+
+For detailed help on any command, use the `--help` flag:
+
+```bash
+electron-builder --help
+electron-builder install-app-deps --help
+electron-builder publish --help
+```
+
+For more documentation, visit [https://electron.build](https://electron.build).

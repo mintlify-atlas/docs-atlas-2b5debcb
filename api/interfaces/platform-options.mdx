@@ -1,0 +1,419 @@
+---
+title: Platform-Specific Options
+description: Platform-specific build configuration interfaces
+---
+
+Platform-specific options configure how electron-builder builds and packages applications for macOS, Windows, and Linux.
+
+## PlatformSpecificBuildOptions
+
+Base interface for all platform-specific options.
+
+Source: `packages/app-builder-lib/src/options/PlatformSpecificBuildOptions.ts:95`
+
+### Common Properties
+
+<ParamField path="appId" type="string | null" default="com.electron.${name}">
+  The application ID. Used as `CFBundleIdentifier` for macOS and `Application User Model ID` for Windows (NSIS only).
+</ParamField>
+
+<ParamField path="artifactName" type="string | null">
+  The artifact file name template. Defaults to `${productName}-${version}.${ext}`.
+  
+  Available variables:
+  - `${name}` - Package name
+  - `${productName}` - Product name
+  - `${version}` - Version
+  - `${ext}` - File extension
+  - `${os}` - OS name
+  - `${arch}` - Architecture
+  - `${channel}` - Update channel
+  
+  **Example:** `"${productName}-${version}-${arch}.${ext}"`
+</ParamField>
+
+<ParamField path="executableName" type="string | null">
+  The executable name. Defaults to `productName`. Note: On Linux, this would constitute a breaking change.
+</ParamField>
+
+<ParamField path="compression" type="CompressionLevel | null" default="normal">
+  The compression level:
+  - `store` - No compression (fastest, largest)
+  - `normal` - Standard compression (default)
+  - `maximum` - Maximum compression (slowest, smallest)
+</ParamField>
+
+### File Patterns
+
+<ParamField path="files" type="Array<FileSet | string> | FileSet | string | null">
+  Glob patterns for files to include in the app package.
+  
+  **Example:**
+  ```json
+  {
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.map",
+      "package.json"
+    ]
+  }
+  ```
+</ParamField>
+
+<ParamField path="extraResources" type="Array<FileSet | string> | FileSet | string | null">
+  Files to copy into the app's resources directory.
+  
+  **macOS:** `Contents/Resources`
+  **Windows/Linux:** `resources`
+</ParamField>
+
+<ParamField path="extraFiles" type="Array<FileSet | string> | FileSet | string | null">
+  Files to copy into the app's content directory.
+  
+  **macOS:** `Contents`
+  **Windows/Linux:** Root directory
+</ParamField>
+
+### ASAR Options
+
+<ParamField path="asar" type="AsarOptions | boolean | null" default="true">
+  Whether to package source code into an ASAR archive. Can be `true`, `false`, or options object.
+  
+  <Expandable title="AsarOptions">
+    <ParamField path="smartUnpack" type="boolean" default="true">
+      Automatically unpack executables.
+    </ParamField>
+    <ParamField path="ordering" type="string | null">
+      Path to ordering file for ASAR.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="asarUnpack" type="Array<string> | string | null">
+  Glob patterns for files to unpack from ASAR archive.
+  
+  **Example:** `"**/node_modules/sharp/**/*"`
+</ParamField>
+
+### Associations
+
+<ParamField path="fileAssociations" type="Array<FileAssociation> | FileAssociation">
+  File associations for the app.
+  
+  <Expandable title="FileAssociation properties">
+    <ParamField path="ext" type="string | Array<string>" required>
+      File extension(s) (without dot).
+    </ParamField>
+    <ParamField path="name" type="string">
+      Association name.
+    </ParamField>
+    <ParamField path="description" type="string">
+      Description.
+    </ParamField>
+    <ParamField path="icon" type="string">
+      Path to icon file.
+    </ParamField>
+    <ParamField path="role" type="string">
+      macOS: Role (Editor, Viewer, Shell, None).
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="protocols" type="Array<Protocol> | Protocol">
+  URL protocol schemes.
+  
+  <Expandable title="Protocol properties">
+    <ParamField path="name" type="string" required>
+      Protocol name.
+    </ParamField>
+    <ParamField path="schemes" type="Array<string>" required>
+      URL schemes (e.g., `["myapp"]`).
+    </ParamField>
+    <ParamField path="role" type="'Editor' | 'Viewer' | 'Shell' | 'None'" default="Editor">
+      macOS only: App's role with respect to the type.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Publishing
+
+<ParamField path="publish" type="Publish">
+  Publishing configuration. Can be a single config or array of configs.
+  
+  **Example (GitHub):**
+  ```json
+  {
+    "publish": {
+      "provider": "github",
+      "owner": "my-org",
+      "repo": "my-repo"
+    }
+  }
+  ```
+  
+  **Example (Multiple providers):**
+  ```json
+  {
+    "publish": [
+      { "provider": "github" },
+      { "provider": "s3", "bucket": "my-bucket" }
+    ]
+  }
+  ```
+</ParamField>
+
+<ParamField path="detectUpdateChannel" type="boolean" default="true">
+  Whether to infer update channel from version pre-release components. E.g., version `1.0.0-beta.1` sets channel to `beta`.
+</ParamField>
+
+<ParamField path="generateUpdatesFilesForAllChannels" type="boolean" default="false">
+  Whether to generate update files for all channels.
+</ParamField>
+
+<ParamField path="releaseInfo" type="ReleaseInfo">
+  Release information.
+  
+  <Expandable title="properties">
+    <ParamField path="releaseName" type="string | null">
+      Release name.
+    </ParamField>
+    <ParamField path="releaseNotes" type="string | null">
+      Release notes text.
+    </ParamField>
+    <ParamField path="releaseNotesFile" type="string | null">
+      Path to release notes file.
+    </ParamField>
+    <ParamField path="releaseDate" type="string">
+      Release date.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Other Options
+
+<ParamField path="target" type="Array<string | TargetConfiguration> | string | TargetConfiguration | null">
+  Build targets for this platform.
+  
+  **Example:**
+  ```json
+  {
+    "mac": {
+      "target": ["dmg", "zip"]
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="electronLanguages" type="Array<string> | string">
+  Electron locales to keep. By default, all locales are included.
+  
+  **Example:** `["en", "en-US", "fr"]`
+</ParamField>
+
+<ParamField path="electronUpdaterCompatibility" type="string | null">
+  The electron-updater compatibility semver range.
+  
+  **Example:** `">=2.16"`
+</ParamField>
+
+## MacConfiguration
+
+Options for building macOS applications.
+
+<ParamField path="category" type="string | null">
+  The application category. See [Apple documentation](https://developer.apple.com/library/ios/documentation/General/Reference/InfoPlistKeyReference/Articles/LaunchServicesKeys.html#//apple_ref/doc/uid/TP40009250-SW8).
+  
+  **Example:** `"public.app-category.developer-tools"`
+</ParamField>
+
+<ParamField path="target" type="Array<string | TargetConfiguration> | string | TargetConfiguration">
+  macOS targets.
+  
+  Supported targets:
+  - `dmg` - DMG installer (default)
+  - `zip` - ZIP archive
+  - `pkg` - PKG installer
+  - `mas` - Mac App Store
+  - `mas-dev` - Mac App Store (development)
+</ParamField>
+
+<ParamField path="identity" type="string | null">
+  The name of certificate to use when signing. Consider using environment variables instead.
+</ParamField>
+
+<ParamField path="icon" type="string | null">
+  Path to application icon (`.icns` file).
+</ParamField>
+
+<ParamField path="entitlements" type="string | null">
+  Path to entitlements file.
+</ParamField>
+
+<ParamField path="entitlementsInherit" type="string | null">
+  Path to child entitlements file.
+</ParamField>
+
+<ParamField path="hardenedRuntime" type="boolean" default="true">
+  Whether to enable hardened runtime (required for notarization).
+</ParamField>
+
+<ParamField path="gatekeeperAssess" type="boolean" default="false">
+  Whether to run Gatekeeper assessment.
+</ParamField>
+
+<ParamField path="notarize" type="boolean | NotarizeOptions">
+  Notarization options. Set to `false` to disable.
+</ParamField>
+
+## WindowsConfiguration
+
+Options for building Windows applications.
+
+<ParamField path="target" type="Array<string | TargetConfiguration> | string | TargetConfiguration">
+  Windows targets.
+  
+  Supported targets:
+  - `nsis` - NSIS installer (default)
+  - `nsis-web` - NSIS web installer
+  - `portable` - Portable executable
+  - `appx` - AppX (Windows Store)
+  - `msi` - MSI installer
+  - `squirrel` - Squirrel.Windows
+</ParamField>
+
+<ParamField path="icon" type="string | null">
+  Path to application icon (`.ico` file).
+</ParamField>
+
+<ParamField path="publisherName" type="string | Array<string> | null">
+  Publisher name for AppX packages.
+</ParamField>
+
+<ParamField path="certificateFile" type="string">
+  Path to certificate file (`.pfx`).
+</ParamField>
+
+<ParamField path="certificatePassword" type="string">
+  Certificate password. Consider using environment variable `WIN_CSC_KEY_PASSWORD`.
+</ParamField>
+
+<ParamField path="signingHashAlgorithms" type="Array<'sha1' | 'sha256'>" default="['sha256']">
+  Signing hash algorithms.
+</ParamField>
+
+<ParamField path="sign" type="string | CustomWindowsSign">
+  Custom signing function or path to custom signing script.
+</ParamField>
+
+## LinuxConfiguration
+
+Options for building Linux applications.
+
+<ParamField path="target" type="Array<string | TargetConfiguration> | string | TargetConfiguration">
+  Linux targets.
+  
+  Supported targets:
+  - `AppImage` - AppImage package (default)
+  - `snap` - Snap package
+  - `deb` - Debian package
+  - `rpm` - RPM package
+  - `pacman` - Pacman package
+  - `flatpak` - Flatpak package
+</ParamField>
+
+<ParamField path="category" type="string | null">
+  The application category.
+  
+  **Example:** `"Development"`, `"Graphics"`, `"Network"`
+</ParamField>
+
+<ParamField path="icon" type="string">
+  Path to application icon (PNG or ICNS).
+</ParamField>
+
+<ParamField path="synopsis" type="string | null">
+  Short description (max 80 characters).
+</ParamField>
+
+<ParamField path="description" type="string | null">
+  Full description.
+</ParamField>
+
+<ParamField path="desktop" type="LinuxDesktopFile">
+  Desktop file entries.
+  
+  <Expandable title="properties">
+    <ParamField path="Exec" type="string">
+      Exec field.
+    </ParamField>
+    <ParamField path="MimeType" type="string">
+      MIME types.
+    </ParamField>
+    <ParamField path="StartupNotify" type="string">
+      Startup notification.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Example: Complete Platform Configuration
+
+```json
+{
+  "appId": "com.example.app",
+  "productName": "My Application",
+  
+  "mac": {
+    "category": "public.app-category.productivity",
+    "target": ["dmg", "zip"],
+    "icon": "build/icon.icns",
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "build/entitlements.mac.plist",
+    "entitlementsInherit": "build/entitlements.mac.inherit.plist"
+  },
+  
+  "dmg": {
+    "background": "build/dmg-background.png",
+    "iconSize": 100,
+    "contents": [
+      { "x": 410, "y": 150, "type": "link", "path": "/Applications" },
+      { "x": 130, "y": 150, "type": "file" }
+    ]
+  },
+  
+  "win": {
+    "target": ["nsis", "portable"],
+    "icon": "build/icon.ico",
+    "publisherName": "My Company"
+  },
+  
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "My Application"
+  },
+  
+  "linux": {
+    "target": ["AppImage", "deb"],
+    "category": "Development",
+    "icon": "build/icons",
+    "synopsis": "A productivity application",
+    "desktop": {
+      "StartupNotify": "true"
+    }
+  },
+  
+  "deb": {
+    "depends": ["libnotify-bin"]
+  }
+}
+```
+
+## See Also
+
+- [Configuration Interface](/api/interfaces/configuration)
+- [macOS Documentation](/mac)
+- [Windows Documentation](/windows)
+- [Linux Documentation](/linux)

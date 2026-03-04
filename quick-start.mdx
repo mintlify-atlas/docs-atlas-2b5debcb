@@ -1,0 +1,295 @@
+---
+title: Quick Start Guide
+description: Get started with electron-builder in just a few steps
+---
+
+# Quick Start Guide
+
+This guide will help you set up electron-builder in your Electron project and create your first build.
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+- An Electron project initialized
+- electron-builder installed as a dev dependency ([Installation Guide](/installation))
+
+## Setup Steps
+
+<Steps>
+  <Step title="Configure package.json metadata">
+    Specify the standard fields in your application `package.json`. These fields are used for your app's metadata:
+
+    ```json package.json
+    {
+      "name": "your-app-name",
+      "version": "1.0.0",
+      "description": "Your app description",
+      "author": "Your Name <your.email@example.com>",
+      "main": "main.js"
+    }
+    ```
+
+    <Note>
+      The `name`, `description`, `version`, and `author` fields are required for proper app packaging.
+    </Note>
+  </Step>
+
+  <Step title="Add build configuration">
+    Add the `build` configuration to your `package.json`:
+
+    ```json package.json
+    {
+      "build": {
+        "appId": "com.your.app.id",
+        "mac": {
+          "category": "public.app-category.productivity"
+        },
+        "win": {
+          "target": "nsis"
+        },
+        "linux": {
+          "target": "AppImage"
+        }
+      }
+    }
+    ```
+
+    <Tip>
+      You can also use separate configuration files (`.js`, `.ts`, `.yml`, `.json`, `.json5`). See [configuration options](https://www.electron.build/configuration) for all available settings.
+    </Tip>
+
+    ### Alternative Configuration Files
+
+    Instead of `package.json`, you can create:
+
+    <CodeGroup>
+
+    ```javascript electron-builder.config.js
+    module.exports = {
+      appId: "com.your.app.id",
+      mac: {
+        category: "public.app-category.productivity"
+      },
+      win: {
+        target: "nsis"
+      },
+      linux: {
+        target: "AppImage"
+      }
+    }
+    ```
+
+    ```yaml electron-builder.yml
+    appId: com.your.app.id
+    mac:
+      category: public.app-category.productivity
+    win:
+      target: nsis
+    linux:
+      target: AppImage
+    ```
+
+    </CodeGroup>
+  </Step>
+
+  <Step title="Add application icons">
+    Add icons for your application. electron-builder will automatically use the correct icon format for each platform.
+
+    Create an `build` directory in your project root and add your icons:
+
+    ```
+    build/
+      ├── icon.icns          # macOS icon
+      ├── icon.ico           # Windows icon
+      └── icon.png           # Linux icon (at least 512x512)
+    ```
+
+    <Note>
+      electron-builder can generate all icon formats from a single 1024x1024 PNG file. Place it at `build/icon.png` and electron-builder will handle the conversions.
+    </Note>
+
+    Learn more about [icon requirements](https://www.electron.build/icons).
+  </Step>
+
+  <Step title="Add build scripts">
+    Add build scripts to your `package.json`:
+
+    ```json package.json
+    {
+      "scripts": {
+        "app:dir": "electron-builder --dir",
+        "app:dist": "electron-builder",
+        "postinstall": "electron-builder install-app-deps"
+      }
+    }
+    ```
+
+    **Script descriptions:**
+
+    - `app:dir` - Generates the package directory without packaging it (useful for testing)
+    - `app:dist` - Packages the app in a distributable format (DMG, installer, etc.)
+    - `postinstall` - Ensures native dependencies match the Electron version
+
+    <Tip>
+      The `postinstall` script is recommended to ensure your native dependencies are always matched to the Electron version.
+    </Tip>
+  </Step>
+
+  <Step title="Build your application">
+    Now you're ready to build your application!
+
+    <CodeGroup>
+
+    ```bash npm
+    # Create distributable packages
+    npm run app:dist
+
+    # Or just generate the package directory (faster, for testing)
+    npm run app:dir
+    ```
+
+    ```bash yarn
+    # Create distributable packages
+    yarn app:dist
+
+    # Or just generate the package directory (faster, for testing)
+    yarn app:dir
+    ```
+
+    ```bash pnpm
+    # Create distributable packages
+    pnpm app:dist
+
+    # Or just generate the package directory (faster, for testing)
+    pnpm app:dir
+    ```
+
+    </CodeGroup>
+
+    Your built application will be in the `dist` directory.
+  </Step>
+</Steps>
+
+## Important Notes
+
+<Warning>
+  Everything is packaged into an **asar archive** by default. This is an Electron archive format that packages your app's source code. You can disable this in the configuration if needed.
+</Warning>
+
+### Native Dependencies
+
+If you have native addons that are part of your application (not as a dependency), set `nodeGypRebuild` to `true` in your build configuration:
+
+```json package.json
+{
+  "build": {
+    "nodeGypRebuild": true
+  }
+}
+```
+
+### Production Code Signing
+
+<Note>
+  For applications that will be shipped to production, you should **sign your application**. This is required for macOS and recommended for Windows.
+</Note>
+
+Learn more about [code signing](https://www.electron.build/code-signing) and [where to buy code signing certificates](https://www.electron.build/code-signing#where-to-buy-code-signing-certificate).
+
+## Example: Complete package.json
+
+Here's a complete example of a `package.json` configured for electron-builder:
+
+```json package.json
+{
+  "name": "my-electron-app",
+  "version": "1.0.0",
+  "description": "My awesome Electron app",
+  "author": "John Doe <john@example.com>",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "app:dir": "electron-builder --dir",
+    "app:dist": "electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.example.myapp",
+    "mac": {
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"]
+    }
+  },
+  "devDependencies": {
+    "electron": "^latest",
+    "electron-builder": "^latest"
+  }
+}
+```
+
+## Using Boilerplates
+
+<Tip>
+  [electron-webpack-quick-start](https://github.com/electron-userland/electron-webpack-quick-start) is a recommended way to create a new Electron application with electron-builder pre-configured.
+</Tip>
+
+### Community Boilerplates
+
+Consider using these community-maintained boilerplates:
+
+- [electron-react-boilerplate](https://github.com/chentsulin/electron-react-boilerplate) - A boilerplate for scalable cross-platform desktop apps
+- [electron-vue-vite](https://github.com/caoxiemeihao/electron-vue-vite) - Electron + Vue3 + Vite5 boilerplate
+- [vite-electron-builder](https://github.com/cawa-93/vite-electron-builder) - Secure boilerplate based on Vite (supports multiple frameworks)
+- [electronjs-with-nextjs](https://github.com/saulotarsobc/electronjs-with-nextjs) - ElectronJS with NextJS and TypeScript
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/configuration/common">
+    Explore all configuration options for advanced builds
+  </Card>
+  
+  <Card title="Code Signing" icon="shield-check" href="/distribution/code-signing">
+    Learn how to sign your application for distribution
+  </Card>
+  
+  <Card title="Auto Update" icon="arrows-rotate" href="/distribution/auto-update">
+    Set up automatic updates for your application
+  </Card>
+  
+  <Card title="Publishing" icon="upload" href="/distribution/publishing">
+    Publish your app to GitHub Releases, S3, and more
+  </Card>
+</CardGroup>
+
+## Debugging
+
+If you encounter issues during the build process, enable debug logging:
+
+<CodeGroup>
+
+```bash macOS/Linux
+DEBUG=electron-builder npm run app:dist
+```
+
+```bash Windows (cmd)
+set DEBUG=electron-builder
+npm run app:dist
+```
+
+```bash Windows (PowerShell)
+$env:DEBUG = "electron-builder"
+npm run app:dist
+```
+
+</CodeGroup>
+
+Additional debug options:
+- `FPM_DEBUG` - More details about building Linux targets (except snap and AppImage)
+- `DEBUG_DMG=true` - More verbosity from `hdiutil` on macOS

@@ -1,0 +1,297 @@
+---
+title: electron-builder Module
+description: Main electron-builder module API reference
+---
+
+The main `electron-builder` module exports the primary build functions and re-exports types from `app-builder-lib`.
+
+## Installation
+
+```bash
+npm install electron-builder --save-dev
+```
+
+## Main Functions
+
+### build()
+
+Builds the application for the specified platforms and targets.
+
+```typescript
+function build(
+  options: PackagerOptions & PublishOptions,
+  packager?: Packager
+): Promise<Array<string>>
+```
+
+<ParamField path="options" type="PackagerOptions & PublishOptions" required>
+  Combined build and publish options.
+</ParamField>
+
+<ParamField path="packager" type="Packager">
+  Optional Packager instance.
+</ParamField>
+
+**Returns:** `Promise<Array<string>>` - Array of artifact paths.
+
+**Example:**
+
+```javascript
+const { build, Platform } = require("electron-builder")
+
+build({
+  targets: Platform.MAC.createTarget(),
+  config: {
+    appId: "com.example.app"
+  }
+})
+```
+
+### createTargets()
+
+Creates a target map for specified platforms.
+
+```typescript
+function createTargets(
+  platforms: Array<Platform>,
+  type?: string | null,
+  arch?: string | null
+): Map<Platform, Map<Arch, Array<string>>>
+```
+
+<ParamField path="platforms" type="Array<Platform>" required>
+  Array of platforms to build for (e.g., `[Platform.MAC, Platform.WINDOWS]`).
+</ParamField>
+
+<ParamField path="type" type="string | null">
+  Target type (e.g., `"dmg"`, `"nsis"`). If null, builds default targets.
+</ParamField>
+
+<ParamField path="arch" type="string | null">
+  Architecture: `"x64"`, `"arm64"`, `"ia32"`, `"armv7l"`, or `"all"`.
+</ParamField>
+
+**Returns:** Target map for use with `build()`.
+
+**Example:**
+
+```javascript
+const { createTargets, Platform } = require("electron-builder")
+
+const targets = createTargets(
+  [Platform.MAC, Platform.WINDOWS],
+  "dmg",
+  "x64"
+)
+```
+
+## Platform Class
+
+Represents a build platform.
+
+### Static Properties
+
+<ParamField path="Platform.MAC" type="Platform">
+  macOS platform instance.
+</ParamField>
+
+<ParamField path="Platform.WINDOWS" type="Platform">
+  Windows platform instance.
+</ParamField>
+
+<ParamField path="Platform.LINUX" type="Platform">
+  Linux platform instance.
+</ParamField>
+
+### Methods
+
+#### createTarget()
+
+Creates targets for this platform.
+
+```typescript
+createTarget(
+  type?: string | Array<string> | null,
+  ...archs: Array<Arch>
+): Map<Platform, Map<Arch, Array<string>>>
+```
+
+<ParamField path="type" type="string | Array<string> | null">
+  Target type(s) (e.g., `"dmg"`, `["dmg", "zip"]`).
+</ParamField>
+
+<ParamField path="archs" type="...Array<Arch>">
+  Architectures to build for.
+</ParamField>
+
+**Example:**
+
+```javascript
+const { Platform, Arch } = require("electron-builder")
+
+// Default target, current architecture
+Platform.MAC.createTarget()
+
+// Specific targets
+Platform.MAC.createTarget(["dmg", "zip"])
+
+// Specific architectures
+Platform.MAC.createTarget("dmg", Arch.x64, Arch.arm64)
+```
+
+#### fromString()
+
+Converts a string to a Platform instance.
+
+```typescript
+static fromString(name: string): Platform
+```
+
+<ParamField path="name" type="string" required>
+  Platform name: `"mac"`, `"darwin"`, `"win"`, `"win32"`, `"windows"`, or `"linux"`.
+</ParamField>
+
+**Example:**
+
+```javascript
+const platform = Platform.fromString("mac")
+```
+
+## Arch Enum
+
+Architecture enumeration.
+
+```typescript
+enum Arch {
+  ia32 = 0,
+  x64 = 1,
+  armv7l = 2,
+  arm64 = 3,
+  universal = 4
+}
+```
+
+### Functions
+
+#### archFromString()
+
+Converts a string to an Arch value.
+
+```typescript
+function archFromString(name: string): Arch
+```
+
+<ParamField path="name" type="string" required>
+  Architecture name: `"ia32"`, `"x64"`, `"armv7l"`, `"arm64"`, or `"universal"`.
+</ParamField>
+
+#### getArchSuffix()
+
+Gets the suffix for an architecture.
+
+```typescript
+function getArchSuffix(arch: Arch, defaultArchs?: Array<Arch>): string
+```
+
+## Exported Types
+
+The module re-exports all types from `app-builder-lib`:
+
+### Configuration Types
+
+- `Configuration` - Main configuration interface
+- `MacConfiguration` - macOS-specific options
+- `WindowsConfiguration` - Windows-specific options
+- `LinuxConfiguration` - Linux-specific options
+- `PlatformSpecificBuildOptions` - Common platform options
+
+### Target Options
+
+- `DmgOptions` - DMG target options
+- `PkgOptions` - PKG target options
+- `NsisOptions` - NSIS installer options
+- `NsisWebOptions` - NSIS web installer options
+- `PortableOptions` - Portable app options
+- `AppImageOptions` - AppImage options
+- `SnapOptions` - Snap package options
+- `DebOptions` - Debian package options
+- `AppXOptions` - AppX package options
+- `MsiOptions` - MSI installer options
+- `SquirrelWindowsOptions` - Squirrel.Windows options
+
+### Core Types
+
+- `Packager` - Main packager class
+- `BuildResult` - Build result interface
+- `PackagerOptions` - Packager options
+- `Target` - Build target abstract class
+- `TargetConfiguration` - Target configuration
+- `BeforeBuildContext` - Before build hook context
+- `AfterPackContext` - After pack hook context
+
+### File and Asset Types
+
+- `FileAssociation` - File association configuration
+- `Protocol` - URL protocol configuration
+- `FileSet` - File set specification
+- `AsarOptions` - ASAR archive options
+
+### Metadata Types
+
+- `Metadata` - package.json metadata
+- `AuthorMetadata` - Author information
+- `RepositoryInfo` - Repository information
+- `AppInfo` - Application information
+
+### Code Signing
+
+- `WindowsSignOptions` - Windows code signing
+- `CustomWindowsSign` - Custom Windows signing
+- `CustomMacSign` - Custom macOS signing
+
+### Artifact Events
+
+- `ArtifactCreated` - Artifact creation event
+- `ArtifactBuildStarted` - Artifact build start event
+
+### Publishing
+
+- `PublishOptions` - Publishing options
+- `PublishManager` - Publish manager class
+- `UploadTask` - Upload task interface
+
+### Platform Packagers
+
+- `MacPackager` - macOS packager
+- `WinPackager` - Windows packager
+- `LinuxPackager` - Linux packager
+
+### Utilities
+
+- `CancellationToken` - Cancellation token
+- `ProgressInfo` - Download progress info
+- `log` - Logger utility
+
+## Import Examples
+
+### CommonJS
+
+```javascript
+const builder = require("electron-builder")
+const { build, Platform, Arch, createTargets } = require("electron-builder")
+```
+
+### ES Modules / TypeScript
+
+```typescript
+import * as builder from "electron-builder"
+import { build, Platform, Arch, createTargets } from "electron-builder"
+import type { Configuration, PackagerOptions } from "electron-builder"
+```
+
+## See Also
+
+- [Programmatic Usage Guide](/api/programmatic-usage)
+- [app-builder-lib API](/api/app-builder-lib)
+- [Configuration Interface](/api/interfaces/configuration)
+- [PackagerOptions Interface](/api/interfaces/packager-options)

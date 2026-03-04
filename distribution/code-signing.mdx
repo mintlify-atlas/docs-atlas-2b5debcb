@@ -1,0 +1,295 @@
+---
+title: Code Signing
+description: Sign your Electron app for macOS and Windows
+---
+
+macOS and Windows code signing is supported by electron-builder. If the configuration values are provided correctly, signing will be executed automatically during the build process.
+
+<Note>
+  Code signing is **required** for macOS applications to work with [auto-update](/distribution/auto-update).
+</Note>
+
+## Environment Variables
+
+Code signing is configured using environment variables:
+
+| Environment Variable | Description |
+|---------------------|-------------|
+| `CSC_LINK` | The HTTPS link, base64-encoded data, `file://` link, or local path to certificate (`*.p12` or `*.pfx` file). Supports `~/` shorthand for home directory. |
+| `CSC_KEY_PASSWORD` | The password to decrypt the certificate given in `CSC_LINK`. |
+| `CSC_NAME` | **macOS only** - Name of certificate to retrieve from login.keychain. Useful on development machines with multiple identities (not needed on CI). |
+| `CSC_IDENTITY_AUTO_DISCOVERY` | `true` or `false`. Defaults to `true` — on macOS development machines, a valid and appropriate identity from your keychain will be automatically used. |
+| `CSC_KEYCHAIN` | The keychain name. Used if `CSC_LINK` is not specified. Defaults to system default keychain. |
+
+### Additional Environment Variables
+
+<CodeGroup>
+```bash macOS Installer
+# For wrapping app to installer (pkg)
+CSC_INSTALLER_LINK=<path-to-installer-certificate>
+CSC_INSTALLER_KEY_PASSWORD=<installer-certificate-password>
+```
+
+```bash Windows on macOS
+# Different certificate for Windows builds on macOS
+WIN_CSC_LINK=<path-to-windows-certificate>
+WIN_CSC_KEY_PASSWORD=<windows-certificate-password>
+```
+</CodeGroup>
+
+<Note>
+  If you are wrapping your app into a macOS installer (pkg), you need to have an `INSTALLER ID` identity in your keychain or provide `CSC_INSTALLER_LINK` and `CSC_INSTALLER_KEY_PASSWORD`.
+</Note>
+
+<Note>
+  If you are building Windows apps on macOS and need different certificates, use `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` instead of the generic `CSC_*` variables.
+</Note>
+
+## CI Server Configuration
+
+To sign your app on CI servers (Travis, AppVeyor, GitHub Actions, etc.), you need to set `CSC_LINK` and `CSC_KEY_PASSWORD`:
+
+<Steps>
+  <Step title="Export your certificate">
+    [Export your certificate](https://developer.apple.com/library/ios/documentation/IDEs/Conceptual/AppDistributionGuide/MaintainingCertificates/MaintainingCertificates.html#//apple_ref/doc/uid/TP40012582-CH31-SW7) to a `.p12` file.
+    
+    <Warning>
+      Avoid using special bash characters in the password, as values are not escaped when builds are executed. If you must use special characters, escape them properly:
+      
+      ```bash
+      printf "%q\n" "<password>"
+      ```
+    </Warning>
+  </Step>
+  
+  <Step title="Encode the certificate">
+    Encode the certificate file to base64:
+    
+    <CodeGroup>
+    ```bash macOS
+    base64 -i yourFile.p12 -o envValue.txt
+    ```
+    
+    ```bash Linux
+    base64 yourFile.p12 > envValue.txt
+    ```
+    </CodeGroup>
+    
+    Alternatively, upload the `*.p12` file to a cloud storage service (e.g., Google Drive) and use a [direct link generator](http://www.syncwithtech.org/p/direct-download-link-generator.html) to get a download link.
+  </Step>
+  
+  <Step title="Set environment variables">
+    Set `CSC_LINK` and `CSC_KEY_PASSWORD` in your CI project settings:
+    
+    - [Travis CI](https://docs.travis-ci.com/user/environment-variables/#Defining-Variables-in-Repository-Settings)
+    - [AppVeyor](https://www.appveyor.com/docs/build-configuration#environment-variables)
+    - GitHub Actions (use repository secrets)
+    
+    <Warning>
+      **Recommended**: Set variables in CI project settings, not in config files (`.travis.yml`, `appveyor.yml`, etc.) to keep credentials secure.
+      
+      In AppVeyor, click the lock icon to "Toggle variable encryption".
+    </Warning>
+  </Step>
+</Steps>
+
+### Windows Certificate Length Limitation
+
+<Warning>
+  Windows cannot handle environment variable values longer than 8192 characters. If the base64 representation of your certificate exceeds this limit:
+  
+  1. Re-export the certificate **without** including all certificates in the certification path
+  2. The Certificate Manager export wizard ticks this option by default, but the intermediate certificates are not necessary
+  3. This will prevent the encoded value from being truncated
+</Warning>
+
+## CI Configuration Examples
+
+### GitHub Actions
+
+```yaml .github/workflows/build.yml
+name: Build and Sign
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build and sign
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: npm run build
+```
+
+### Travis CI
+
+```yaml .travis.yml
+language: node_js
+node_js:
+  - 18
+
+os:
+  - osx
+  - windows
+
+script:
+  - npm run build
+
+env:
+  global:
+    - secure: "encrypted-csc-link"
+    - secure: "encrypted-csc-password"
+```
+
+### AppVeyor
+
+```yaml appveyor.yml
+environment:
+  CSC_LINK:
+    secure: <encrypted-value>
+  CSC_KEY_PASSWORD:
+    secure: <encrypted-value>
+
+install:
+  - npm ci
+
+build_script:
+  - npm run build
+```
+
+## Where to Buy Code Signing Certificates
+
+### Windows
+
+For Windows code signing, you need an Authenticode certificate:
+
+- [Microsoft Documentation: Get a code signing certificate](https://msdn.microsoft.com/windows/hardware/drivers/dashboard/get-a-code-signing-certificate)
+- Platform: "Microsoft Authenticode"
+- Popular providers:
+  - DigiCert
+  - Sectigo (formerly Comodo)
+  - GlobalSign
+  - SSL.com
+
+### macOS
+
+For macOS code signing, you need an [Apple digital certificate](http://stackoverflow.com/questions/11833481/non-apple-issued-code-signing-certificate-can-it-work-with-mac-os-10-8-gatekeep):
+
+<Warning>
+  **Important**: Gatekeeper only recognizes Apple-issued certificates. You must obtain your certificate from Apple through the Apple Developer Program.
+</Warning>
+
+1. Join the [Apple Developer Program](https://developer.apple.com/programs/) ($99/year)
+2. Create a Developer ID Application certificate in your Apple Developer account
+3. Download and install the certificate in your Keychain Access
+
+### Certificate Types
+
+**macOS**:
+- **Developer ID Application**: For distributing outside the Mac App Store
+- **Mac App Distribution**: For distributing through the Mac App Store
+- **Developer ID Installer**: For creating signed installers (pkg files)
+
+**Windows**:
+- **Code Signing Certificate**: For signing executables and installers
+- **EV Code Signing Certificate**: Extended Validation certificate (no SmartScreen warnings)
+
+## Alternative Code Signing Methods
+
+Code signing via electron-builder configuration is not the only approach. Some developers prefer GUI tools:
+
+### Third-Party Tools
+
+- [SSL.com eSigner](https://www.ssl.com/esigner/) - Cloud-based code signing
+- [SSL Manager](https://www.ssl.com/ssl-manager) - Certificate management tool
+- [DigiCert Certificate Utility for Windows](https://www.digicert.com/support/tools/certificate-utility-for-windows) - Windows certificate management
+
+<Note>
+  Comprehensive discussion of third-party signing tools is beyond the scope of this documentation. Refer to the tool's documentation for usage instructions.
+</Note>
+
+## macOS Notarization
+
+Starting with macOS 10.15 (Catalina), apps must be notarized by Apple to run without warnings:
+
+```json package.json
+{
+  "build": {
+    "mac": {
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "afterSign": "scripts/notarize.js"
+  }
+}
+```
+
+**Environment Variables for Notarization**:
+- `APPLE_ID`: Your Apple ID email
+- `APPLE_APP_SPECIFIC_PASSWORD`: App-specific password from Apple ID
+- `APPLE_TEAM_ID`: Your Apple Team ID
+
+## Troubleshooting
+
+### Verify Certificate Installation (macOS)
+
+```bash
+security find-identity -v -p codesigning
+```
+
+This command lists all code signing identities in your keychain.
+
+### Verify Signature (macOS)
+
+```bash
+codesign -dv --verbose=4 /path/to/YourApp.app
+```
+
+### Verify Signature (Windows)
+
+```powershell
+Get-AuthenticodeSignature -FilePath "path\to\YourApp.exe"
+```
+
+### Common Issues
+
+**macOS**:
+- **"No identity found"**: Certificate not installed in keychain or `CSC_NAME` doesn't match
+- **"User interaction is not allowed"**: Keychain is locked on CI; use `CSC_LINK` with base64-encoded certificate
+- **"Notarization failed"**: Check that `APPLE_ID` credentials are correct and app meets notarization requirements
+
+**Windows**:
+- **"Certificate not found"**: `CSC_LINK` path is incorrect or certificate is malformed
+- **"Invalid password"**: `CSC_KEY_PASSWORD` is incorrect
+- **"Unsupported algorithm"**: Certificate uses an unsupported signature algorithm; obtain a new certificate
+
+## Security Best Practices
+
+<Warning>
+  - Never commit certificates or passwords to version control
+  - Use CI environment variables with encryption enabled
+  - Rotate certificates before expiration
+  - Use separate certificates for development and production
+  - Limit access to certificate files and environment variables
+  - For macOS, consider using app-specific passwords instead of your main Apple ID password
+</Warning>
