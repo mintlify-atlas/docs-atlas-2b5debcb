@@ -1,0 +1,188 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "electron-builder",
+  "projectDescription": "A complete solution to package and build a ready for distribution Electron app with auto update support out of the box",
+  "theme": "aspen",
+  "primaryColor": "#1E90FF",
+  "lightColor": "#4AB8FF",
+  "darkColor": "#0066CC",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quick-start"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/build-configuration",
+              "concepts/file-patterns",
+              "concepts/application-contents",
+              "concepts/multi-platform-builds"
+            ]
+          },
+          {
+            "group": "Packaging",
+            "pages": [
+              "packaging/macos",
+              "packaging/windows",
+              "packaging/linux"
+            ]
+          },
+          {
+            "group": "Distribution",
+            "pages": [
+              "distribution/auto-update",
+              "distribution/publishing",
+              "distribution/code-signing"
+            ]
+          },
+          {
+            "group": "CLI",
+            "pages": [
+              "cli/commands",
+              "cli/options"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Configuration",
+        "groups": [
+          {
+            "group": "Common",
+            "pages": [
+              "configuration/common",
+              "configuration/hooks",
+              "configuration/icons"
+            ]
+          },
+          {
+            "group": "macOS",
+            "pages": [
+              "configuration/mac",
+              "configuration/dmg",
+              "configuration/mas",
+              "configuration/pkg"
+            ]
+          },
+          {
+            "group": "Windows",
+            "pages": [
+              "configuration/win",
+              "configuration/nsis",
+              "configuration/appx",
+              "configuration/msi",
+              "configuration/squirrel-windows"
+            ]
+          },
+          {
+            "group": "Linux",
+            "pages": [
+              "configuration/linux",
+              "configuration/appimage",
+              "configuration/snap",
+              "configuration/flatpak"
+            ]
+          },
+          {
+            "group": "Publishing",
+            "pages": [
+              "configuration/publish"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Code Signing",
+            "pages": [
+              "guides/code-signing/overview",
+              "guides/code-signing/windows",
+              "guides/code-signing/macos"
+            ]
+          },
+          {
+            "group": "Auto Update",
+            "pages": [
+              "guides/auto-update/setup",
+              "guides/auto-update/testing",
+              "guides/auto-update/channels"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "guides/advanced/two-package-structure",
+              "guides/advanced/electron-fuses",
+              "guides/advanced/app-dependencies",
+              "guides/advanced/macos-kernel-extensions"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/programmatic-usage"
+            ]
+          },
+          {
+            "group": "Core Modules",
+            "pages": [
+              "api/electron-builder",
+              "api/app-builder-lib",
+              "api/electron-updater",
+              "api/electron-publish"
+            ]
+          },
+          {
+            "group": "Interfaces",
+            "pages": [
+              "api/interfaces/configuration",
+              "api/interfaces/packager-options",
+              "api/interfaces/platform-options"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-platform building for macOS, Windows, and Linux",
+    "Auto-update support with electron-updater",
+    "Code signing for macOS and Windows",
+    "Multiple distribution formats (DMG, NSIS, AppImage, Snap, MSI, etc.)",
+    "Publishing to GitHub Releases, S3, and other platforms",
+    "Native dependency compilation and management",
+    "Docker support for cross-platform builds",
+    "Two package.json structure support",
+    "CLI and programmatic API"
+  ],
+  "publicApiSurface": [
+    "electron-builder (CLI command)",
+    "install-app-deps (CLI command)",
+    "build() - Main build function",
+    "Platform - Platform targets (MAC, WINDOWS, LINUX)",
+    "Packager - Core packager class",
+    "Configuration - Build configuration interface",
+    "autoUpdater - Electron updater module",
+    "AppUpdater - Base updater class",
+    "PublishManager - Artifact publishing manager",
+    "MacPackager - macOS platform packager",
+    "WinPackager - Windows platform packager",
+    "LinuxPackager - Linux platform packager"
+  ]
+}
